@@ -1,0 +1,12 @@
+import { z } from 'zod';
+const password = z.string().min(8).max(72).regex(/[A-Z]/, 'Needs an uppercase letter').regex(/[0-9]/, 'Needs a number');
+const phone = z.string().regex(/^(\+92|0)3\d{9}$/, 'Invalid Pakistani mobile number');
+export const registerDto = z.object({ fullName: z.string().min(2).max(100), email: z.string().email(), password, phoneNumber: phone.optional() });
+export const loginDto = z.object({ email: z.string().email(), password: z.string().min(1) });
+export const forgotPasswordDto = z.object({ email: z.string().email() });
+export const resetPasswordDto = z.object({ token: z.string().min(10), password });
+export const verifyEmailDto = z.object({ token: z.string().min(10) });
+export const changePasswordDto = z.object({ currentPassword: z.string().min(1), newPassword: password });
+export const updateProfileDto = z.object({ fullName: z.string().min(2).max(100).optional(), phoneNumber: phone.optional() });
+export type RegisterInput = z.infer<typeof registerDto>;
+export type UpdateProfileInput = z.infer<typeof updateProfileDto>;
