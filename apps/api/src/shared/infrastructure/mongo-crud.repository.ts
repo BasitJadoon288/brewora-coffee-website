@@ -1,12 +1,12 @@
 import { Model } from 'mongoose';
 import { CrudRepository } from '../domain/crud';
 import { PageRequest, skipOf, toPage } from '../domain/pagination';
-import { escapeRegex, fromMongo, guard, oidOrNull } from './mongo';
+import { countFast, escapeRegex, fromMongo, guard, oidOrNull } from './mongo';
 export class MongoCrudRepository<T, TNew> implements CrudRepository<T, TNew> {
   constructor(protected model: Model<any>, private searchField?: string, private sort = '-createdAt') {}
   async list(search: string | undefined, req: PageRequest) {
     const f: any = {}; if (this.searchField && search) f[this.searchField] = new RegExp(escapeRegex(search), 'i');
-    const [docs, total] = await Promise.all([this.model.find(f).sort(this.sort).skip(skipOf(req)).limit(req.limit).lean(), this.model.countDocuments(f)]);
+    const [docs, total] = await Promise.all([this.model.find(f).sort(this.sort).skip(skipOf(req)).limit(req.limit).lean(), countFast(this.model, f)]);
     return toPage(docs.map(d => fromMongo<T>(d)), total, req);
   }
   async findById(id: string) { const k = oidOrNull(id); const d = k && (await this.model.findById(k).lean()); return d ? fromMongo<T>(d) : null; }

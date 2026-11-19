@@ -10,6 +10,7 @@ export class JwtTokenService implements TokenService {
     try { const p = jwt.verify(t, this.accessSecret) as jwt.JwtPayload; return { userId: p.sub as string, role: p.role as Role }; } catch { return null; }
   }
   verifyRefreshToken(t: string) { try { return { userId: (jwt.verify(t, this.refreshSecret) as jwt.JwtPayload).sub as string }; } catch { return null; } }
+  generateOtp() { return String(crypto.randomInt(100000, 1000000)); }
   generateOpaqueToken() { return crypto.randomBytes(32).toString('hex'); }
   fingerprint(v: string) { return crypto.createHash('sha256').update(v).digest('hex'); }
 }

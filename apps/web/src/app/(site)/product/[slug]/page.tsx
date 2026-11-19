@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
-import ProductImage from '@/components/ProductImage';
+import ProductGallery from '@/components/ProductGallery';
 import ProductPurchase from '@/components/ProductPurchase';
 import Reviews from '@/components/Reviews';
 import { serverGet } from '@/lib/server';
@@ -16,13 +16,12 @@ export default async function ProductPage({ params }: { params: { slug: string }
   const ld = { '@context': 'https://schema.org', '@type': 'Product', name: p.name, description: p.shortDescription ?? p.description, sku: p.sku, image: p.images.map(i => i.url),
     offers: { '@type': 'Offer', priceCurrency: 'PKR', price, availability: p.stockQuantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' } };
   return (
-    <div className="container-x py-10">
+    <div className="container-x py-6 sm:py-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
-      <div className="grid gap-10 md:grid-cols-2">
-        <div className="space-y-3"><ProductImage src={p.images[0]?.url} alt={p.images[0]?.alt || p.name} className="aspect-square w-full rounded-2xl" />
-          {p.images.length > 1 && <div className="grid grid-cols-4 gap-3">{p.images.slice(1, 5).map((i, n) => <ProductImage key={n} src={i.url} alt={i.alt || p.name} className="aspect-square w-full rounded-xl" />)}</div>}</div>
+      <div className="grid gap-6 md:grid-cols-2 md:gap-10">
+        <ProductGallery images={p.images} name={p.name} />
         <div>
-          <h1 className="font-display text-4xl text-espresso">{p.name}</h1>
+          <h1 className="font-display text-3xl text-espresso md:text-4xl">{p.name}</h1>
                     <p className={`mt-2 text-sm ${p.stockQuantity > 0 ? 'text-green-700' : 'text-red-700'}`}>{p.stockQuantity > 10 ? 'In stock' : p.stockQuantity > 0 ? `Only ${p.stockQuantity} left` : 'Out of stock'}</p>
           <p className="mt-4 text-charcoal/80">{p.description}</p>
           <ProductPurchase p={p} />

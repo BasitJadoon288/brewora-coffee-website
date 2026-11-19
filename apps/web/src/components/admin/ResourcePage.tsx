@@ -5,10 +5,11 @@ import { Field, Loading, Modal, Pager } from '../ui';
 import { useToast } from '../toast';
 import { api, ApiError } from '@/lib/api';
 import type { Paged } from '@/lib/types';
+import type { SpecKey } from '@/lib/image-specs';
 import ImageField from './ImageField';
 import { fieldErrors, PageTitle, SearchBox, Table, useDebounced } from './kit';
 
-export interface FieldDef { name: string; label: string; type: 'text' | 'number' | 'textarea' | 'checkbox' | 'select' | 'image' | 'date'; options?: { value: string; label: string }[]; required?: boolean; hint?: string; nullable?: boolean; default?: unknown; folder?: string }
+export interface FieldDef { name: string; label: string; type: 'text' | 'number' | 'textarea' | 'checkbox' | 'select' | 'image' | 'date'; options?: { value: string; label: string }[]; required?: boolean; hint?: string; nullable?: boolean; default?: unknown; folder?: string; spec?: SpecKey }
 export interface ColumnDef { header: string; cell: (row: any) => React.ReactNode }
 interface Props { title: string; sub?: string; listPath: string; writePath: string; paged?: boolean; fields: FieldDef[]; columns: ColumnDef[]; searchable?: boolean; addLabel?: string }
 
@@ -47,7 +48,7 @@ export default function ResourcePage({ title, sub, listPath, writePath, paged = 
       {paged && data && <Pager page={data.page} pages={data.pages} onChange={setPage} />}</>}
     <Modal open={!!row} onClose={() => setRow(null)} title={row === 'new' ? addLabel : 'Edit'}><form onSubmit={save} className="space-y-4" noValidate>
       {fields.map(f => { const err = errs[f.name]?.[0]; const id = `f-${f.name}`; const val = v[f.name];
-        if (f.type === 'image') return <ImageField key={f.name} label={f.label} value={val ?? ''} onChange={x => set(f.name, x)} folder={f.folder} error={err} />;
+        if (f.type === 'image') return <ImageField key={f.name} label={f.label} value={val ?? ''} onChange={x => set(f.name, x)} folder={f.folder} spec={f.name === 'image' && v.placement === 'promo' ? 'promo' : f.spec} error={err} />;
         if (f.type === 'checkbox') return <label key={f.name} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!val} onChange={e => set(f.name, e.target.checked)} className="h-4 w-4 accent-[#C58B52]" />{f.label}</label>;
         return <Field key={f.name} label={f.label + (f.required ? ' *' : '')} htmlFor={id} error={err} hint={f.hint}>
           {f.type === 'textarea' ? <textarea id={id} className="input min-h-24" value={val ?? ''} onChange={e => set(f.name, e.target.value)} />

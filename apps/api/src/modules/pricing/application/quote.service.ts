@@ -17,7 +17,8 @@ export class QuoteService {
     const merged = new Map<string, QuoteItemInput>();
     for (const i of input) { const k = `${i.productId}|${i.variant ?? ''}`; const e = merged.get(k); merged.set(k, e ? { ...e, quantity: e.quantity + i.quantity } : { ...i }); }
     const items = [...merged.values()];
-    const found = await this.products.findByIds(items.map(i => i.productId), true);
+    const code = couponCode ? couponCode.trim().toUpperCase() : '';
+    const [found, s, c] = await Promise.all([this.products.findByIds(items.map(i => i.productId), true), this.settings.get(), code ? this.coupons.findByCode(code) : null]);
     const byId = new Map(found.map(p => [p.id, p]));
     const stockUsed = new Map<string, number>();
     const lines: QuoteLine[] = items.map(i => {
@@ -30,10 +31,8 @@ export class QuoteService {
       return { productId: p.id, name: p.name, sku: p.sku, variant: i.variant, image: p.images?.[0]?.url, unitPrice: up, quantity: i.quantity, lineTotal: round2(up * i.quantity) };
     });
     const subTotal = round2(lines.reduce((s, l) => s + l.lineTotal, 0));
-    const s = await this.settings.get();
     let discount = 0; let coupon: Quote['coupon'] = null;
     if (couponCode) {
-      const c = await this.coupons.findByCode(couponCode.trim().toUpperCase());
       if (!c) throw new BadRequestError('Invalid coupon code');
       const err = couponError(c, subTotal); if (err) throw new BadRequestError(err);
       discount = couponDiscount(c, subTotal); coupon = { id: c.id, code: c.code };

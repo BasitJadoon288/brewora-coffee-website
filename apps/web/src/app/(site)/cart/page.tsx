@@ -27,9 +27,9 @@ export default function CartPage() {
   if (loading) return <Loading />;
   if (lines.length === 0) return <div className="container-x py-16"><Empty title="Your cart is empty" text="Add some coffee to get started."><Link href="/shop" className="btn-gold">Continue shopping</Link></Empty></div>;
   const unavailable = lines.some((l: CartLine) => l.available === false); const blocked = !!error || !q || unavailable;
-  return <div className="container-x py-10"><h1 className="font-display text-4xl text-espresso">Shopping cart</h1>
+  return <div className="container-x py-10"><h1 className="font-display text-3xl text-espresso sm:text-4xl">Shopping cart</h1>
     <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
-      <ul className="space-y-4">{lines.map(l => <li key={l.key} className="flex gap-4 rounded-2xl bg-white p-4 shadow-soft"><ProductImage src={l.image} alt={l.name} className="h-24 w-24 shrink-0 rounded-xl" />
+      <ul className="space-y-4">{lines.map(l => <li key={l.key} className="flex gap-3 rounded-2xl bg-white p-3 shadow-soft sm:gap-4 sm:p-4"><ProductImage src={l.image} alt={l.name} className="h-20 w-20 shrink-0 rounded-xl sm:h-24 sm:w-24" />
         <div className="min-w-0 flex-1"><Link href={l.slug ? `/product/${l.slug}` : '#'} className="font-display text-lg text-espresso hover:underline">{l.name}</Link>{l.variant && <p className="text-sm text-charcoal/60">{l.variant}</p>}
           {l.available === false && <p role="alert" className="text-sm text-red-700">Not enough stock — reduce quantity or remove.</p>}<p className="mt-1 text-sm">{money(l.unitPrice)}</p>
           <div className="mt-2 flex items-center gap-4"><div className="flex items-center rounded-full border border-espresso/20"><button aria-label={`Decrease ${l.name}`} className="p-2 disabled:opacity-40" disabled={l.quantity <= 1} onClick={() => act(() => setQty(l, l.quantity - 1))}><Minus className="h-4 w-4" /></button>

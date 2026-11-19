@@ -89,11 +89,12 @@ export function buildContainer(env: Env) {
 
   // ---- identity
   const sessions = new Auth.SessionIssuer(repos.users, tokens);
-  const verification = new Auth.EmailVerificationSender(repos.users, tokens, mailer, config);
+  const otps = new Auth.OtpService(repos.users, tokens);
+  const verification = new Auth.EmailVerificationSender(repos.users, tokens, mailer, config, otps);
   const auth: Auth.AuthUseCases = {
     register: new Auth.RegisterUser(repos.users, hasher, sessions, verification), login: new Auth.LoginUser(repos.users, hasher, sessions), refresh: new Auth.RefreshSession(repos.users, tokens, sessions),
-    logout: new Auth.LogoutUser(repos.users), forgotPassword: new Auth.RequestPasswordReset(repos.users, tokens, mailer, config), resetPassword: new Auth.ResetPassword(repos.users, tokens, hasher),
-    verifyEmail: new Auth.VerifyEmail(repos.users, tokens), resendVerification: new Auth.ResendVerification(repos.users, verification), changePassword: new Auth.ChangePassword(repos.users, hasher),
+    logout: new Auth.LogoutUser(repos.users), forgotPassword: new Auth.RequestPasswordReset(repos.users, tokens, mailer, config, otps), resetPassword: new Auth.ResetPassword(repos.users, tokens, hasher, otps),
+    verifyEmail: new Auth.VerifyEmail(repos.users, tokens, otps), resendVerification: new Auth.ResendVerification(repos.users, verification, otps), changePassword: new Auth.ChangePassword(repos.users, hasher),
     getProfile: new Auth.GetProfile(repos.users), updateProfile: new Auth.UpdateProfile(repos.users),
   };
   const cookie: CookieOptions = { httpOnly: true, sameSite: 'strict', secure: env.NODE_ENV === 'production', path: '/api/auth', maxAge: 7 * 86400e3 };

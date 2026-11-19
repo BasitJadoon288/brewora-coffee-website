@@ -15,7 +15,7 @@ export default async function Shop({ searchParams }: { searchParams: SP }) {
   const link = (over: SP) => { const n = new URLSearchParams(); for (const [k, v] of Object.entries({ ...searchParams, ...over })) if (v) n.set(k, v); return `/shop?${n}`; };
   return (
     <div className="container-x py-10">
-      <h1 className="font-display text-4xl text-espresso">Shop</h1>
+      <h1 className="font-display text-3xl text-espresso sm:text-4xl">Shop</h1>
       <div className="mt-8 grid gap-8 lg:grid-cols-[260px_1fr]">
         <aside>
           <form action="/shop" className="space-y-5 rounded-2xl bg-white p-5 shadow-soft">
@@ -33,7 +33,7 @@ export default async function Shop({ searchParams }: { searchParams: SP }) {
           <p className="mb-4 text-sm text-charcoal/60">{data.total} product{data.total === 1 ? '' : 's'}</p>
           {data.items.length === 0 ? <div className="rounded-2xl bg-white p-12 text-center shadow-soft"><p className="font-display text-xl text-espresso">No products found</p><p className="mt-2 text-sm text-charcoal/60">Try different filters.</p></div>
             : <div className="grid grid-cols-2 gap-4 md:grid-cols-3">{data.items.map(p => <ProductCard key={p.id} p={p} />)}</div>}
-          {data.pages > 1 && <nav className="mt-10 flex justify-center gap-2" aria-label="Pagination">
+          {data.pages > 1 && <nav className="mt-10 flex flex-wrap justify-center gap-2" aria-label="Pagination">
             {Array.from({ length: data.pages }, (_, i) => i + 1).map(n => <Link key={n} href={link({ page: String(n) })} aria-current={n === data.page ? 'page' : undefined}
               className={`rounded-full px-4 py-2 text-sm ${n === data.page ? 'bg-espresso text-cream' : 'bg-white text-espresso shadow-soft'}`}>{n}</Link>)}</nav>}
         </section>

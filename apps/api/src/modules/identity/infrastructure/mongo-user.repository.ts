@@ -1,8 +1,9 @@
 import { fromMongo, guard, oidOrNull } from '../../../shared/infrastructure/mongo';
-import { NewUser, User, UserRepository } from '../domain/user';
+import { NewUser, OtpPurpose, User, UserRepository } from '../domain/user';
 import { UserModel } from './user.model';
 
-const SECRETS = ['passwordHash', 'refreshTokenHash', 'resetTokenHash', 'resetTokenExpires', 'emailVerifyHash'];
+const FIELD: Record<OtpPurpose, 'emailOtp' | 'resetOtp'> = { verify: 'emailOtp', reset: 'resetOtp' };
+const SECRETS = ['passwordHash', 'refreshTokenHash', 'resetTokenHash', 'resetTokenExpires', 'emailVerifyHash', 'emailOtp', 'resetOtp'];
 /** Entities never carry credentials, whichever query produced the document. */
 const toUser = (d: any): User => { const u = fromMongo<any>(d); for (const k of SECRETS) delete u[k]; return u as User; };
 export class MongoUserRepository implements UserRepository {
@@ -18,7 +19,15 @@ export class MongoUserRepository implements UserRepository {
   async setRefreshFingerprint(id: string, fp: string | null) { await UserModel.updateOne({ _id: id }, fp ? { refreshTokenHash: fp } : { $unset: { refreshTokenHash: 1 } }); }
   async setPasswordResetToken(id: string, fp: string, expires: Date) { await UserModel.updateOne({ _id: id }, { resetTokenHash: fp, resetTokenExpires: expires }); }
   async findIdByValidResetToken(fp: string, now: Date) { const d: any = await UserModel.findOne({ resetTokenHash: fp, resetTokenExpires: { $gt: now } }).lean(); return d ? String(d._id) : null; }
-  async replacePassword(id: string, passwordHash: string) { await UserModel.updateOne({ _id: id }, { passwordHash, $unset: { resetTokenHash: 1, resetTokenExpires: 1, refreshTokenHash: 1 } }); }
+  async replacePassword(id: string, passwordHash: string) { await UserModel.updateOne({ _id: id }, { passwordHash, $unset: { resetTokenHash: 1, resetTokenExpires: 1, resetOtp: 1, refreshTokenHash: 1 } }); }
+  async setOtp(id: string, purpose: OtpPurpose, hash: string, expires: Date) { await UserModel.updateOne({ _id: id }, { [FIELD[purpose]]: { hash, expires, attempts: 0 } }); }
+  async getOtp(email: string, purpose: OtpPurpose) {
+    const d: any = await UserModel.findOne({ email }).select(`+${FIELD[purpose]}`).lean(); const o = d?.[FIELD[purpose]];
+    return o?.hash ? { userId: String(d._id), hash: o.hash, expires: o.expires, attempts: o.attempts ?? 0 } : null;
+  }
+  async bumpOtpAttempts(id: string, purpose: OtpPurpose) { await UserModel.updateOne({ _id: id }, { $inc: { [`${FIELD[purpose]}.attempts`]: 1 } }); }
+  async clearOtp(id: string, purpose: OtpPurpose) { await UserModel.updateOne({ _id: id }, { $unset: { [FIELD[purpose]]: 1 } }); }
+  async markEmailVerified(id: string) { await UserModel.updateOne({ _id: id }, { isEmailVerified: true, $unset: { emailVerifyHash: 1, emailOtp: 1 } }); }
   async setEmailVerifyToken(id: string, fp: string) { await UserModel.updateOne({ _id: id }, { emailVerifyHash: fp }); }
   async verifyEmailByToken(fp: string) { const r = await UserModel.updateOne({ emailVerifyHash: fp }, { isEmailVerified: true, $unset: { emailVerifyHash: 1 } }); return r.modifiedCount > 0; }
   async updateProfile(id: string, patch: { fullName?: string; phoneNumber?: string }) { const k = oidOrNull(id); if (!k) return null; const d = await guard(UserModel.findByIdAndUpdate(k, patch, { new: true, runValidators: true }).lean()); return d ? toUser(d) : null; }

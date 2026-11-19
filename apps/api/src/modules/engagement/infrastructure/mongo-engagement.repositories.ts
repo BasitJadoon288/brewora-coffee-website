@@ -1,5 +1,5 @@
 import { PageRequest, skipOf, toPage } from '../../../shared/domain/pagination';
-import { fromMongo, guard, oidOrNull } from '../../../shared/infrastructure/mongo';
+import { countFast, fromMongo, guard, oidOrNull } from '../../../shared/infrastructure/mongo';
 import { Address, AddressRepository, ContactMessage, ContactRepository, NewContactMessage, NewAddress, NewNotification, NewReview, NewsletterRepository, Notification, NotificationRepository, NotificationScope, Review, ReviewRepository, WishlistRepository } from '../domain/engagement';
 import { AddressModel, ContactModel, NewsletterModel, NotificationModel, ReviewModel, WishlistModel } from './engagement.models';
 import { Types } from 'mongoose';
@@ -44,13 +44,13 @@ export class MongoNotificationRepository implements NotificationRepository {
   async list(s: NotificationScope, req: PageRequest) { return (await NotificationModel.find(nfilter(s)).sort('-createdAt').skip(skipOf(req)).limit(req.limit).lean()).map(d => fromMongo<Notification>(d)); }
   countUnread(s: NotificationScope) { return NotificationModel.countDocuments({ ...nfilter(s), isRead: false }); }
   async markRead(s: NotificationScope, id: string) { const k = oidOrNull(id); if (!k) return null; const d = await NotificationModel.findOneAndUpdate({ _id: k, ...nfilter(s) }, { isRead: true }, { new: true }).lean(); return d ? fromMongo<Notification>(d) : null; }
-  async markAll(s: NotificationScope) { await NotificationModel.updateMany(nfilter(s), { isRead: true }); }
+  async markAll(s: NotificationScope) { await NotificationModel.updateMany({ ...nfilter(s), isRead: false }, { isRead: true }); } // only touch unread rows
   async recentForAdmins(limit: number) { return (await NotificationModel.find({ audience: 'Admin' }).sort('-createdAt').limit(limit).lean()).map(d => fromMongo<Notification>(d)); }
 }
 export class MongoNewsletterRepository implements NewsletterRepository {
   async subscribe(email: string) { await NewsletterModel.updateOne({ email }, { isActive: true }, { upsert: true }); }
   async list(req: PageRequest) {
-    const [docs, total] = await Promise.all([NewsletterModel.find().sort('-createdAt').skip(skipOf(req)).limit(req.limit).lean(), NewsletterModel.countDocuments()]);
+    const [docs, total] = await Promise.all([NewsletterModel.find().sort('-createdAt').skip(skipOf(req)).limit(req.limit).lean(), countFast(NewsletterModel)]);
     return toPage(docs.map(d => fromMongo<any>(d)), total, req);
   }
 }

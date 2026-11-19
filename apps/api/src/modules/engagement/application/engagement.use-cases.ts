@@ -17,7 +17,7 @@ export class GetWishlist {
 }
 export class AddToWishlist {
   constructor(private wishlist: WishlistRepository, private products: ProductRepository, private get: GetWishlist) {}
-  async execute(userId: string, productId: string) { if (!(await this.products.findById(productId, true))) throw new NotFoundError('Product not found'); await this.wishlist.add(userId, productId); return this.get.execute(userId); }
+  async execute(userId: string, productId: string) { if (!(await this.products.findById(productId, true, false))) throw new NotFoundError('Product not found'); await this.wishlist.add(userId, productId); return this.get.execute(userId); }
 }
 export class RemoveFromWishlist { constructor(private wishlist: WishlistRepository, private get: GetWishlist) {} async execute(userId: string, productId: string) { await this.wishlist.remove(userId, productId); return this.get.execute(userId); } }
 export class MoveWishlistToCart {
@@ -33,9 +33,9 @@ export class ListReviews { constructor(private reviews: ReviewRepository) {} asy
 export class AddReview {
   constructor(private reviews: ReviewRepository, private products: ProductRepository, private users: UserRepository, private orders: OrderRepository, private rating: RatingUpdater) {}
   async execute(viewer: Viewer, productId: string, i: { rating: number; comment?: string }) {
-    if (!(await this.products.findById(productId))) throw new NotFoundError('Product not found');
-    const user = await this.users.findById(viewer.id); if (!user) throw new NotFoundError('User not found');
-    const isVerifiedPurchase = await this.orders.hasDeliveredPurchase(viewer.id, productId);
+    const [product, user, isVerifiedPurchase] = await Promise.all([this.products.findById(productId, false, false), this.users.findById(viewer.id), this.orders.hasDeliveredPurchase(viewer.id, productId)]);
+    if (!product) throw new NotFoundError('Product not found');
+    if (!user) throw new NotFoundError('User not found');
     let review; try { review = await this.reviews.create({ productId, userId: viewer.id, userName: user.fullName, rating: i.rating, comment: i.comment, isVerifiedPurchase }); }
     catch (e) { if (e instanceof ConflictError) throw new ConflictError('You already reviewed this product'); throw e; }
     await this.rating.refresh(productId); return review;

@@ -1,11 +1,34 @@
 @tailwind base; @tailwind components; @tailwind utilities;
-body { @apply bg-cream text-charcoal antialiased; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { @apply overflow-x-hidden bg-cream text-charcoal antialiased; }
+img { @apply max-w-full; }
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-wide transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2; }
-  .btn-gold { @apply btn bg-caramel text-espresso hover:bg-[#d49a62]; }
-  .btn-dark { @apply btn bg-espresso text-cream hover:bg-charcoal; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-wide transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2; }
+  .btn-gold { @apply btn bg-caramel text-espresso hover:bg-[#d49a62] hover:shadow-soft; }
+  .btn-dark { @apply btn bg-espresso text-cream hover:bg-charcoal hover:shadow-soft; }
   .btn-outline { @apply btn border border-cream/60 text-cream hover:bg-cream hover:text-espresso; }
-  .input { @apply w-full rounded-lg border border-espresso/20 bg-white px-4 py-2.5 text-sm outline-none focus:border-caramel focus:ring-2 focus:ring-caramel/30; }
+  .input { @apply w-full rounded-lg border border-espresso/20 bg-white px-4 py-2.5 text-base outline-none transition duration-200 focus:border-caramel focus:ring-2 focus:ring-caramel/30 sm:text-sm; }
   .container-x { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
 }
-@media (prefers-reduced-motion: no-preference) { .fade-up { animation: fadeUp .6s ease both; } @keyframes fadeUp { from { opacity: 0; transform: translateY(12px);} to { opacity: 1; transform: none; } } }
+/* ---------- motion (disabled automatically for people who prefer reduced motion) ---------- */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .fade-up { animation: fadeUp .7s cubic-bezier(.22,.61,.36,1) both; }
+  .fade-up-2 { animation: fadeUp .7s .12s cubic-bezier(.22,.61,.36,1) both; }
+  .fade-up-3 { animation: fadeUp .7s .24s cubic-bezier(.22,.61,.36,1) both; }
+  .page-enter { animation: fadeUp .45s cubic-bezier(.22,.61,.36,1) both; }
+  .img-in { animation: fadeIn .5s ease both; }
+  .modal-backdrop { animation: fadeIn .2s ease both; }
+  .modal-pop { animation: popIn .25s cubic-bezier(.22,.61,.36,1) both; }
+  .toast-in { animation: slideUp .3s cubic-bezier(.22,.61,.36,1) both; }
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s cubic-bezier(.22,.61,.36,1); will-change: opacity, transform; }
+  .reveal-on { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .reveal { opacity: 1; } }
+/* smooth open/close for the mobile menu */
+.menu-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s ease; }
+.menu-grid[data-open='true'] { grid-template-rows: 1fr; }
+.menu-grid > div { overflow: hidden; }

@@ -19,7 +19,7 @@ export function assertValidPricing(price: number, discountPrice?: number | null)
 }
 export interface ProductRepository {
   search(f: ProductFilter, sort: ProductSort, req: PageRequest): Promise<Page<Product>>;
-  findById(id: string, activeOnly?: boolean): Promise<Product | null>;
+  findById(id: string, activeOnly?: boolean, withCategory?: boolean): Promise<Product | null>;
   findBySlug(slug: string, activeOnly?: boolean): Promise<Product | null>;
   findByIds(ids: string[], activeOnly?: boolean): Promise<Product[]>;
   findRelated(categoryId: string, excludeId: string, limit: number): Promise<Product[]>;

@@ -30,8 +30,22 @@ export async function api<T = any>(path: string, o: { method?: string; body?: un
   if (r.status === 204) return undefined as T;
   return (await r.json()) as T;
 }
-/** Uploads an image to the API (admin only). Returns the public URL. */
+/**
+ * Uploads an image (admin only) and returns its public URL.
+ * 1) Cloudinary signed direct upload (required on Vercel: serverless has no persistent disk and a 4.5 MB request limit)
+ * 2) falls back to the API's local-disk upload only when Cloudinary is not configured (local development).
+ */
 export async function apiUpload(file: File, folder: string): Promise<string> {
+  const s = await authed('/api/admin/uploads/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder }) });
+  if (s.ok) {
+    const p = await s.json(); const fd = new FormData();
+    fd.append('file', file); fd.append('api_key', String(p.apiKey)); fd.append('timestamp', String(p.timestamp)); fd.append('folder', String(p.folder)); fd.append('signature', String(p.signature));
+    const r = await fetch(p.uploadUrl as string, { method: 'POST', body: fd });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new ApiError(r.status, d?.error?.message ?? 'Image upload failed');
+    return d.secure_url as string;
+  }
+  if (s.status !== 503) return fail(s); // 503 = Cloudinary not configured -> local disk (development only)
   const r = await authed(`/api/admin/uploads/image?folder=${encodeURIComponent(folder)}`, { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
   if (!r.ok) return fail(r);
   return (await r.json()).url as string;

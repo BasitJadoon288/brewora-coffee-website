@@ -7,5 +7,5 @@ export const metadata: Metadata = {
   description: 'Premium coffee delivered to your doorstep across Pakistan. Rich flavor, premium quality.',
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body><Providers>{children}</Providers></body></html>;
+  return <html lang="en"><body><noscript><style>{`.reveal{opacity:1!important;transform:none!important}`}</style></noscript><Providers>{children}</Providers></body></html>;
 }

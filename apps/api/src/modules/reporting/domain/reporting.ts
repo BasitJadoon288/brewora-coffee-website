@@ -9,6 +9,8 @@ export type CustomerRow = User & { orders: number; totalSpent: number };
 /** Read-side (query) port: cross-aggregate aggregations that don't belong to a single aggregate repository. */
 export interface ReportingRepository {
   salesSeries(period: Period, from?: Date, to?: Date): Promise<SalesPoint[]>;
+  /** Default daily/weekly/monthly/yearly series for the dashboard in a single query. */
+  salesOverview(): Promise<Record<Period, SalesPoint[]>>;
   productPerformance(from?: Date, to?: Date, limit?: number): Promise<ProductPerformance[]>;
   paidRevenue(): Promise<number>;
   countOrders(status?: OrderStatus): Promise<number>;

@@ -17,11 +17,19 @@ const productSchema = new Schema({
   salesCount: { type: Number, default: 0 }, ratingAverage: { type: Number, default: 0 }, ratingCount: { type: Number, default: 0 },
   isFeatured: { type: Boolean, default: false }, isBestSeller: { type: Boolean, default: false }, isActive: { type: Boolean, default: true },
 }, { timestamps: true });
-productSchema.index({ name: 'text', description: 'text' });
-productSchema.index({ isActive: 1, categoryId: 1, price: 1 });
+// The unused text index was removed (search uses regex, never $text): it slowed every product write and bloated storage.
+productSchema.index({ isActive: 1, categoryId: 1, price: 1 }); // category pages + price sort/filter + related products
+productSchema.index({ isActive: 1, createdAt: -1 }); // storefront "newest"
+productSchema.index({ isActive: 1, salesCount: -1 }); // storefront "popular"
+productSchema.index({ isActive: 1, isFeatured: 1, createdAt: -1 }); // featured rail
+productSchema.index({ isActive: 1, isBestSeller: 1, salesCount: -1 }); // best-seller rail
+productSchema.index({ stockQuantity: 1 }); // inventory list + low-stock alerts
 export const ProductModel = model('Product', productSchema);
-export const InventoryTransactionModel = model('InventoryTransaction', new Schema({
-  productId: ref('Product', { required: true, index: true }),
+const inventorySchema = new Schema({
+  productId: ref('Product', { required: true }),
   type: { type: String, enum: ['Initial', 'Sale', 'Cancellation', 'Restock', 'Adjustment'], required: true },
-  change: { type: Number, required: true }, balanceAfter: { type: Number, required: true }, reason: String, orderId: ref('Order'), by: ref('User'),
-}, { timestamps: { createdAt: true, updatedAt: false } }));
+  change: { type: Number, required: true }, balanceAfter: { type: Number, required: true }, reason: String, orderId: ref('Order', { index: true }), by: ref('User'), // orderId index: compensation deletes (deleteByOrder) were full scans
+}, { timestamps: { createdAt: true, updatedAt: false } });
+inventorySchema.index({ productId: 1, createdAt: -1 });
+inventorySchema.index({ createdAt: -1 });
+export const InventoryTransactionModel = model('InventoryTransaction', inventorySchema);

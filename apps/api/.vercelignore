@@ -1,0 +1,5 @@
+.env
+.env.local
+uploads
+tests
+node_modules

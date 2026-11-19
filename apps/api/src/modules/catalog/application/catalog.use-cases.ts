@@ -36,14 +36,15 @@ export class CreateProduct {
 export class UpdateProduct {
   constructor(private products: ProductRepository, private ledger: InventoryLedger) {}
   async execute(id: string, patch: UpdateProductInput, by: string) {
-    const cur = await this.products.findById(id, false); if (!cur) throw new NotFoundError('Product not found');
+    const cur = await this.products.findById(id, false, false); if (!cur) throw new NotFoundError('Product not found');
     const { stockQuantity, ...rest } = patch; // stock changes always go through the ledger
     assertValidPricing(rest.price ?? cur.price, 'discountPrice' in rest ? rest.discountPrice : cur.discountPrice);
-    if (Object.keys(rest).length) await this.products.update(id, rest);
-    if (stockQuantity !== undefined) {
-      const r = await this.products.setStock(id, stockQuantity);
-      if (r && r.after !== r.before) await this.ledger.record({ productId: id, type: 'Adjustment', change: r.after - r.before, balanceAfter: r.after, reason: 'Edited in product form', by });
-    }
+    // field update and stock set touch different fields of the same document: run them concurrently
+    await Promise.all([
+      Object.keys(rest).length ? this.products.update(id, rest) : undefined,
+      stockQuantity !== undefined ? this.products.setStock(id, stockQuantity).then(r => (r && r.after !== r.before
+        ? this.ledger.record({ productId: id, type: 'Adjustment', change: r.after - r.before, balanceAfter: r.after, reason: 'Edited in product form', by }) : undefined)) : undefined,
+    ]);
     return (await this.products.findById(id, false))!;
   }
 }

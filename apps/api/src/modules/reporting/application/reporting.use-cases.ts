@@ -10,13 +10,16 @@ export class GetDashboard {
   constructor(private r: ReportingRepository, private products: ProductRepository, private settings: SettingsRepository, private notifications: NotificationRepository) {}
   async execute() {
     const { lowStockThreshold: t } = await this.settings.get();
-    const [revenue, totalOrders, pending, completed, customers, products, lowCount, daily, weekly, monthly, yearly, byStatus, recent, best, latest, low, activities] = await Promise.all([
-      this.r.paidRevenue(), this.r.countOrders(), this.r.countOrders('Pending'), this.r.countOrders('Delivered'), this.r.countCustomers(), this.products.countAll(), this.products.countLowStock(t),
-      this.r.salesSeries('daily'), this.r.salesSeries('weekly'), this.r.salesSeries('monthly'), this.r.salesSeries('yearly'), this.r.orderStatusCounts(),
+    // 11 queries (was 17): total/pending/completed counts are derived from the status breakdown, and the 4 sales series share one aggregation
+    const [revenue, customers, products, lowCount, sales, byStatus, recent, best, latest, low, activities] = await Promise.all([
+      this.r.paidRevenue(), this.r.countCustomers(), this.products.countAll(), this.products.countLowStock(t),
+      this.r.salesOverview(), this.r.orderStatusCounts(),
       this.r.recentOrders(8), this.r.productPerformance(undefined, undefined, 5), this.r.latestCustomers(5), this.products.lowStock(t, 10), this.notifications.recentForAdmins(10),
     ]);
+    const count = (s?: string) => byStatus.filter(x => !s || x.status === s).reduce((n, x) => n + x.count, 0);
+    const { daily, weekly, monthly, yearly } = sales;
     return {
-      cards: { totalRevenue: revenue, totalOrders, pendingOrders: pending, completedOrders: completed, totalCustomers: customers, totalProducts: products, lowStockProducts: lowCount },
+      cards: { totalRevenue: revenue, totalOrders: count(), pendingOrders: count('Pending'), completedOrders: count('Delivered'), totalCustomers: customers, totalProducts: products, lowStockProducts: lowCount },
       charts: { daily, weekly, monthly, yearly, orderStats: byStatus },
       recentOrders: recent.map(o => ({ id: o.id, orderNumber: o.orderNumber, customerDetails: { fullName: o.customerDetails.fullName }, totalAmount: o.totalAmount, orderStatus: o.orderStatus, paymentStatus: o.paymentStatus, createdAt: o.createdAt })),
       bestSellers: best.map(b => ({ id: b.productId, name: b.name, unitsSold: b.unitsSold })),
@@ -30,8 +33,8 @@ export class ListCustomers { constructor(private r: ReportingRepository) {} exec
 export class GetCustomerProfile {
   constructor(private users: UserRepository, private r: ReportingRepository) {}
   async execute(id: string) {
-    const u = await this.users.findById(id); if (!u || u.role !== 'Customer') throw new NotFoundError('Customer not found');
-    const orders = await this.r.customerOrders(id, 50);
+    const [u, orders] = await Promise.all([this.users.findById(id), this.r.customerOrders(id, 50)]);
+    if (!u || u.role !== 'Customer') throw new NotFoundError('Customer not found');
     return { customer: u, orders, totalSpent: orders.filter(o => o.orderStatus !== 'Cancelled').reduce((s, o) => s + o.totalAmount, 0) };
   }
 }

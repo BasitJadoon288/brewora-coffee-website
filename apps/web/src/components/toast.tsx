@@ -10,6 +10,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
   return <Ctx.Provider value={push}>{children}
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4" role="status" aria-live="polite">
-      {items.map(i => <div key={i.id} className={`pointer-events-auto max-w-md rounded-xl px-4 py-3 text-sm shadow-soft ${i.kind === 'ok' ? 'bg-espresso text-cream' : 'bg-red-700 text-white'}`}>{i.msg}</div>)}
+      {items.map(i => <div key={i.id} className={`toast-in pointer-events-auto max-w-md rounded-xl px-4 py-3 text-sm shadow-soft ${i.kind === 'ok' ? 'bg-espresso text-cream' : 'bg-red-700 text-white'}`}>{i.msg}</div>)}
     </div></Ctx.Provider>;
 }

@@ -19,7 +19,7 @@ export class AdminController {
     const q = req.query; res.json(await this.uc.searchOrders.execute({ q: q.q ? String(q.q) : undefined, orderStatus: q.orderStatus as string, paymentStatus: q.paymentStatus as string, paymentMethod: q.paymentMethod as string, from: dateQ(q.from), to: dateQ(q.to) }, pageRequest(q)));
   });
   order = asyncHandler(async (req, res) => { res.json(await this.uc.orderDetail.execute(req.params.id)); });
-  invoice = asyncHandler(async (req, res) => { const o = await this.uc.orderDetail.execute(req.params.id); res.type('html').send(renderInvoice(o, await this.uc.settings.execute())); });
+  invoice = asyncHandler(async (req, res) => { const [o, s] = await Promise.all([this.uc.orderDetail.execute(req.params.id), this.uc.settings.execute()]); res.type('html').send(renderInvoice(o, s)); });
   status = asyncHandler(async (req, res) => { res.json(await this.uc.updateStatus.execute(req.params.id, req.body.status, req.user!.id, req.body.note)); });
   payment = asyncHandler(async (req, res) => { res.json(await this.uc.markPayment.execute(req.params.id, req.body.status, req.user!.id, req.body.reference)); });
   refund = asyncHandler(async (req, res) => { res.json(await this.uc.refund.execute(req.params.id, req.user!.id, req.body.amount, req.body.note)); });

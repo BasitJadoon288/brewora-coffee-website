@@ -7,8 +7,9 @@ import { CartItemInput } from './cart.dto';
 
 export class CartViewBuilder {
   constructor(private carts: CartRepository, private products: ProductRepository) {}
-  async build(userId: string) {
-    const cart = (await this.carts.findByUser(userId)) ?? emptyCart(userId);
+  /** Pass `loaded` (e.g. the cart a write just returned) to skip re-reading it from the database. */
+  async build(userId: string, loaded?: Cart) {
+    const cart = loaded ?? (await this.carts.findByUser(userId)) ?? emptyCart(userId);
     const by = new Map((await this.products.findByIds(cart.items.map(i => i.productId), false)).map(p => [p.id, p]));
     const items = cart.items.map(i => {
       const p = by.get(i.productId); const v = p?.variants.find(x => x.name === i.variant); const up = p ? unitPrice(p, v?.priceDelta ?? 0) : 0;
@@ -25,10 +26,10 @@ export class AddCartItem {
     const ex = findLine(cart, i.productId, i.variant); const qty = (ex?.quantity ?? 0) + i.quantity;
     await this.assertBuyable(i.productId, i.variant, qty);
     if (ex) ex.quantity = qty; else cart.items.push({ productId: i.productId, variant: i.variant, quantity: i.quantity });
-    await this.carts.save(cart); return this.view.build(userId);
+    return this.view.build(userId, await this.carts.save(cart));
   }
   async assertBuyable(productId: string, variant: string | undefined, qty: number) {
-    const p = await this.products.findById(productId, true); if (!p) throw new NotFoundError('Product not found');
+    const p = await this.products.findById(productId, true, false); if (!p) throw new NotFoundError('Product not found');
     if (variant && !p.variants.some(v => v.name === variant)) throw new BadRequestError('Invalid variant');
     if (qty > p.stockQuantity) throw new ConflictError(`Only ${p.stockQuantity} in stock`);
   }
@@ -41,27 +42,33 @@ export class UpdateCartItem {
   constructor(private carts: CartRepository, private add: AddCartItem, private view: CartViewBuilder) {}
   async execute(userId: string, itemId: string, quantity: number) {
     const [cart, it] = await need(this.carts, userId, itemId);
-    await this.add.assertBuyable(it.productId, it.variant, quantity); it.quantity = quantity; await this.carts.save(cart); return this.view.build(userId);
+    await this.add.assertBuyable(it.productId, it.variant, quantity); it.quantity = quantity; return this.view.build(userId, await this.carts.save(cart));
   }
 }
 export class RemoveCartItem {
   constructor(private carts: CartRepository, private view: CartViewBuilder) {}
-  async execute(userId: string, itemId: string) { const [cart] = await need(this.carts, userId, itemId); cart.items = cart.items.filter(i => i.id !== itemId); await this.carts.save(cart); return this.view.build(userId); }
+  async execute(userId: string, itemId: string) { const [cart] = await need(this.carts, userId, itemId); cart.items = cart.items.filter(i => i.id !== itemId); return this.view.build(userId, await this.carts.save(cart)); }
 }
-/** Merges a guest (localStorage) cart after login; quantities are clamped to stock, unbuyable items are reported. */
+/**
+ * Merges a guest (localStorage) cart after login; quantities are clamped to stock, unbuyable items are reported.
+ * One cart read, one product read and ONE cart write for the whole merge (previously ~5 queries per guest line).
+ */
 export class MergeGuestCart {
   constructor(private carts: CartRepository, private products: ProductRepository, private add: AddCartItem, private view: CartViewBuilder) {}
   async execute(userId: string, guest: CartItemInput[]) {
-    const skipped: string[] = [];
+    const skipped: string[] = []; let changed = false;
+    const [existing, found] = await Promise.all([this.carts.findByUser(userId), this.products.findByIds([...new Set(guest.map(g => g.productId))], true)]);
+    const cart = existing ?? emptyCart(userId); const by = new Map(found.map(p => [p.id, p]));
     for (const g of guest) {
-      try { await this.add.execute(userId, g); } catch (e) {
-        if (e instanceof ConflictError) {
-          const p = await this.products.findById(g.productId, true); const have = findLine((await this.carts.findByUser(userId)) ?? emptyCart(userId), g.productId, g.variant)?.quantity ?? 0;
-          if (p && p.stockQuantity > have) { try { await this.add.execute(userId, { ...g, quantity: p.stockQuantity - have }); continue; } catch { /* fall through */ } }
-        }
-        skipped.push(g.productId);
-      }
+      const p = by.get(g.productId);
+      if (!p || (g.variant && !p.variants.some(v => v.name === g.variant))) { skipped.push(g.productId); continue; }
+      const ex = findLine(cart, g.productId, g.variant); const have = ex?.quantity ?? 0;
+      const qty = Math.min(have + g.quantity, p.stockQuantity); // clamp to stock
+      if (qty <= have) { skipped.push(g.productId); continue; } // nothing more can be added
+      if (ex) ex.quantity = qty; else cart.items.push({ productId: g.productId, variant: g.variant, quantity: qty });
+      changed = true;
     }
-    return { ...(await this.view.build(userId)), skipped };
+    const saved = changed ? await this.carts.save(cart) : cart; // skip the write when nothing changed
+    return { ...(await this.view.build(userId, saved)), skipped };
   }
 }

@@ -16,6 +16,9 @@ const orderSchema = new Schema({
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ orderStatus: 1, createdAt: -1 });
 orderSchema.index({ 'customerDetails.email': 1 });
+orderSchema.index({ createdAt: -1 }); // recent orders, sales series, reports
+orderSchema.index({ paymentStatus: 1, createdAt: -1 }); // paid revenue + payment filters
+orderSchema.index({ userId: 1, orderStatus: 1, 'items.productId': 1 }); // "verified purchase" check
 export const OrderModel = model('Order', orderSchema);
 export const PaymentModel = model('Payment', new Schema({
   orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true, index: true }, amount: { type: Number, required: true },

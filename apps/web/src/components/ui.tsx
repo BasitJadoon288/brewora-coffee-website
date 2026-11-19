@@ -13,16 +13,16 @@ export function Empty({ title, text, children }: { title: string; text?: string;
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => { if (!open) return; const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open, onClose]);
   if (!open) return null;
-  return <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-    <div role="dialog" aria-modal="true" aria-label={title} className={`my-8 w-full rounded-2xl bg-cream p-6 shadow-soft ${wide ? 'max-w-3xl' : 'max-w-lg'}`}>
+  return <div className="modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-4" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+    <div role="dialog" aria-modal="true" aria-label={title} className={`modal-pop my-4 w-full rounded-2xl bg-cream p-4 shadow-soft sm:my-8 sm:p-6 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}>
       <div className="mb-4 flex items-center justify-between"><h2 className="font-display text-xl text-espresso">{title}</h2><button onClick={onClose} aria-label="Close" className="rounded-full p-1 hover:bg-espresso/10"><X className="h-5 w-5" /></button></div>{children}</div></div>;
 }
 export function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (p: number) => void }) {
   if (pages <= 1) return null;
   return <nav className="mt-4 flex items-center justify-center gap-2 text-sm" aria-label="Pagination">
-    <button className="rounded-full bg-white px-4 py-2 shadow-soft disabled:opacity-40" disabled={page <= 1} onClick={() => onChange(page - 1)}>Previous</button>
+    <button className="rounded-full bg-white px-4 py-2 shadow-soft transition active:scale-95 disabled:opacity-40" disabled={page <= 1} onClick={() => onChange(page - 1)}>Previous</button>
     <span className="px-2 text-charcoal/70">Page {page} of {pages}</span>
-    <button className="rounded-full bg-white px-4 py-2 shadow-soft disabled:opacity-40" disabled={page >= pages} onClick={() => onChange(page + 1)}>Next</button></nav>;
+    <button className="rounded-full bg-white px-4 py-2 shadow-soft transition active:scale-95 disabled:opacity-40" disabled={page >= pages} onClick={() => onChange(page + 1)}>Next</button></nav>;
 }
 const TONES: Record<string, string> = { Pending: 'bg-amber-100 text-amber-800', Confirmed: 'bg-blue-100 text-blue-800', Processing: 'bg-indigo-100 text-indigo-800', Shipped: 'bg-purple-100 text-purple-800', Delivered: 'bg-green-100 text-green-800', Cancelled: 'bg-red-100 text-red-800', Paid: 'bg-green-100 text-green-800', Failed: 'bg-red-100 text-red-800', Refunded: 'bg-gray-200 text-gray-800' };
 export const Badge = ({ value }: { value: string }) => <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${TONES[value] ?? 'bg-gray-100 text-gray-700'}`}>{value}</span>;

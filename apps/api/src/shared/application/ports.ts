@@ -7,6 +7,8 @@ export interface TokenService {
   verifyAccessToken(t: string): { userId: string; role: Role } | null;
   verifyRefreshToken(t: string): { userId: string } | null;
   generateOpaqueToken(): string;
+  /** 6-digit one-time code from a CSPRNG. */
+  generateOtp(): string;
   fingerprint(value: string): string;
 }
 export interface Notifier {

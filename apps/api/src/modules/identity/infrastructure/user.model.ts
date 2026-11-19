@@ -10,5 +10,10 @@ const userSchema = new Schema({
   refreshTokenHash: { type: String, select: false },
   resetTokenHash: { type: String, select: false }, resetTokenExpires: { type: Date, select: false },
   emailVerifyHash: { type: String, select: false },
+  emailOtp: { type: new Schema({ hash: String, expires: Date, attempts: { type: Number, default: 0 } }, { _id: false }), select: false },
+  resetOtp: { type: new Schema({ hash: String, expires: Date, attempts: { type: Number, default: 0 } }, { _id: false }), select: false },
 }, { timestamps: true });
+userSchema.index({ role: 1, createdAt: -1 }); // customer list / counts / latest customers
+userSchema.index({ resetTokenHash: 1 }, { sparse: true }); // password-reset lookup was a collection scan
+userSchema.index({ emailVerifyHash: 1 }, { sparse: true }); // e-mail verification lookup was a collection scan
 export const UserModel = model('User', userSchema);

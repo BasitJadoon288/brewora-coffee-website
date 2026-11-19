@@ -12,16 +12,32 @@ const mapOrder = (d: any) => fromMongo<Order>(d);
 const mapUser = (d: any) => fromMongo<User>(d);
 
 export class MongoReportingRepository implements ReportingRepository {
-  async salesSeries(period: Period, from?: Date, to?: Date): Promise<SalesPoint[]> {
+  /** $group + $sort stages for one period granularity (shared by the single-period and the dashboard "all periods" query). */
+  private seriesStages(period: Period) {
     const idExpr: any = period === 'weekly'
       ? { y: { $isoWeekYear: { date: '$createdAt', timezone: TZ } }, w: { $isoWeek: { date: '$createdAt', timezone: TZ } } }
       : { $dateToString: { format: { daily: '%Y-%m-%d', monthly: '%Y-%m', yearly: '%Y' }[period], date: '$createdAt', timezone: TZ } };
-    const rows = await OrderModel.aggregate([
-      { $match: { orderStatus: { $ne: 'Cancelled' }, createdAt: { $gte: from ?? defaultFrom(period), $lte: to ?? new Date() } } },
+    return [
       { $group: { _id: idExpr, orders: { $sum: 1 }, sales: { $sum: '$totalAmount' }, paidRevenue: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'Paid'] }, '$totalAmount', 0] } } } },
       { $sort: { _id: 1 } },
-    ]);
+    ];
+  }
+  private toPoints(rows: any[]): SalesPoint[] {
     return rows.map((r: any) => ({ period: typeof r._id === 'string' ? r._id : `${r._id.y}-W${String(r._id.w).padStart(2, '0')}`, orders: r.orders, sales: r.sales, paidRevenue: r.paidRevenue }));
+  }
+  async salesSeries(period: Period, from?: Date, to?: Date): Promise<SalesPoint[]> {
+    const rows = await OrderModel.aggregate([
+      { $match: { orderStatus: { $ne: 'Cancelled' }, createdAt: { $gte: from ?? defaultFrom(period), $lte: to ?? new Date() } } },
+      ...this.seriesStages(period),
+    ]);
+    return this.toPoints(rows);
+  }
+  /** Dashboard: all four default series from ONE pass over orders ($facet) instead of four separate aggregations. */
+  async salesOverview(): Promise<Record<Period, SalesPoint[]>> {
+    const periods: Period[] = ['daily', 'weekly', 'monthly', 'yearly']; const now = new Date();
+    const facets = Object.fromEntries(periods.map(p => [p, [{ $match: { createdAt: { $gte: defaultFrom(p) } } }, ...this.seriesStages(p)]]));
+    const [row] = await OrderModel.aggregate([{ $match: { orderStatus: { $ne: 'Cancelled' }, createdAt: { $gte: defaultFrom('yearly'), $lte: now } } }, { $facet: facets }]);
+    return Object.fromEntries(periods.map(p => [p, this.toPoints(row?.[p] ?? [])])) as Record<Period, SalesPoint[]>;
   }
   async productPerformance(from?: Date, to?: Date, limit = 100): Promise<ProductPerformance[]> {
     const rows = await OrderModel.aggregate([
@@ -35,8 +51,8 @@ export class MongoReportingRepository implements ReportingRepository {
   countOrders(status?: OrderStatus) { return OrderModel.countDocuments(status ? { orderStatus: status } : {}); }
   countCustomers() { return UserModel.countDocuments({ role: 'Customer' }); }
   async orderStatusCounts() { return (await OrderModel.aggregate([{ $group: { _id: '$orderStatus', count: { $sum: 1 } } }])).map((x: any) => ({ status: x._id, count: x.count })); }
-  async recentOrders(limit: number) { return (await OrderModel.find().sort('-createdAt').limit(limit).lean()).map(mapOrder); }
-  async latestCustomers(limit: number) { return (await UserModel.find({ role: 'Customer' }).sort('-createdAt').limit(limit).lean()).map(mapUser); }
+  async recentOrders(limit: number) { return (await OrderModel.find().select('orderNumber customerDetails.fullName totalAmount orderStatus paymentStatus createdAt').sort('-createdAt').limit(limit).lean()).map(mapOrder); } // only the fields the dashboard shows
+  async latestCustomers(limit: number) { return (await UserModel.find({ role: 'Customer' }).select('fullName email createdAt').sort('-createdAt').limit(limit).lean()).map(mapUser); }
   async searchOrders(f: OrderSearch, req: PageRequest) {
     const q: any = {}; const s = (f.q ?? '').trim();
     if (s) { const r = new RegExp(escapeRegex(s), 'i'); q.$or = [{ orderNumber: r }, { 'customerDetails.fullName': r }, { 'customerDetails.email': r }, { 'customerDetails.phone': r }]; }
@@ -57,10 +73,15 @@ export class MongoReportingRepository implements ReportingRepository {
   }
   async customersForReport(limit: number) { return this.withStats(await UserModel.find({ role: 'Customer' }).sort('-createdAt').limit(limit).lean()); }
   async customerOrders(userId: string, limit: number) { const k = oidOrNull(userId); return k ? (await OrderModel.find({ userId: k }).sort('-createdAt').limit(limit).lean()).map(mapOrder) : []; }
-  async ordersForReport(from: Date | undefined, to: Date | undefined, limit: number) { const f: any = from || to ? { createdAt: { ...(from && { $gte: from }), ...(to && { $lte: to }) } } : {}; return (await OrderModel.find(f).sort('-createdAt').limit(limit).lean()).map(mapOrder); }
+  async ordersForReport(from: Date | undefined, to: Date | undefined, limit: number) { const f: any = from || to ? { createdAt: { ...(from && { $gte: from }), ...(to && { $lte: to }) } } : {}; return (await OrderModel.find(f).select('orderNumber createdAt customerDetails.fullName customerDetails.email orderStatus paymentMethod paymentStatus totalAmount').sort('-createdAt').limit(limit).lean()).map(mapOrder); } // report rows need only these columns
+  /** Group order lines per product FIRST (small result), and only then join products/categories - the old pipeline did a $lookup for every single order line. */
   async salesByCategory() {
-    const rows = await OrderModel.aggregate([{ $match: { orderStatus: { $ne: 'Cancelled' } } }, { $unwind: '$items' }, { $lookup: { from: 'products', localField: 'items.productId', foreignField: '_id', as: 'p' } }, { $unwind: '$p' },
-      { $group: { _id: '$p.categoryId', revenue: { $sum: '$items.lineTotal' }, units: { $sum: '$items.quantity' } } }, { $lookup: { from: 'categories', localField: '_id', foreignField: '_id', as: 'c' } },
+    const rows = await OrderModel.aggregate([
+      { $match: { orderStatus: { $ne: 'Cancelled' } } }, { $unwind: '$items' },
+      { $group: { _id: '$items.productId', revenue: { $sum: '$items.lineTotal' }, units: { $sum: '$items.quantity' } } },
+      { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'p' } }, { $unwind: '$p' },
+      { $group: { _id: '$p.categoryId', revenue: { $sum: '$revenue' }, units: { $sum: '$units' } } },
+      { $lookup: { from: 'categories', localField: '_id', foreignField: '_id', as: 'c' } },
       { $project: { category: { $arrayElemAt: ['$c.name', 0] }, revenue: 1, units: 1 } }, { $sort: { revenue: -1 } }]);
     return rows.map((r: any) => ({ categoryId: String(r._id), category: r.category, revenue: r.revenue, units: r.units }));
   }

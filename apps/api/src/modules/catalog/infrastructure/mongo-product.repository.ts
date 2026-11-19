@@ -28,7 +28,12 @@ export class MongoProductRepository implements ProductRepository {
     if (f.bestSeller) q.isBestSeller = true;
     return this.page(q, SORT[sort], req);
   }
-  async findById(id: string, activeOnly = false) { const k = oidOrNull(id); if (!k) return null; const d = await ProductModel.findOne({ _id: k, ...(activeOnly && { isActive: true }) }).populate('categoryId', 'name slug').lean(); return d ? toProduct(d) : null; }
+  /** `withCategory=false` skips the category populate (an extra round-trip) for internal callers that only need the product. */
+  async findById(id: string, activeOnly = false, withCategory = true) {
+    const k = oidOrNull(id); if (!k) return null;
+    const q = ProductModel.findOne({ _id: k, ...(activeOnly && { isActive: true }) }); if (withCategory) q.populate('categoryId', 'name slug');
+    const d = await q.lean(); return d ? toProduct(d) : null;
+  }
   async findBySlug(slug: string, activeOnly = false) { const d = await ProductModel.findOne({ slug, ...(activeOnly && { isActive: true }) }).populate('categoryId', 'name slug').lean(); return d ? toProduct(d) : null; }
   async findByIds(ids: string[], activeOnly = false) { const valid = ids.filter(i => oidOrNull(i)); return (await ProductModel.find({ _id: { $in: valid }, ...(activeOnly && { isActive: true }) }).lean()).map(toProduct); }
   async findRelated(categoryId: string, excludeId: string, limit: number) { return (await ProductModel.find({ categoryId, _id: { $ne: excludeId }, isActive: true }).limit(limit).lean()).map(toProduct); }
@@ -40,7 +45,7 @@ export class MongoProductRepository implements ProductRepository {
     const d = await guard(ProductModel.findByIdAndUpdate(k, update, { new: true, runValidators: true }).lean()); return d ? toProduct(d) : null;
   }
   async delete(id: string) { const k = oidOrNull(id); return !!(k && (await ProductModel.findByIdAndDelete(k))); }
-  countAll() { return ProductModel.countDocuments(); }
+  countAll() { return ProductModel.estimatedDocumentCount(); }
   async existsInCategory(categoryId: string) { return !!(await ProductModel.exists({ categoryId })); }
   async reserveStock(id: string, qty: number) {
     const d: any = await ProductModel.findOneAndUpdate({ _id: id, isActive: true, stockQuantity: { $gte: qty } }, { $inc: { stockQuantity: -qty, salesCount: qty } }, { new: true }).lean();

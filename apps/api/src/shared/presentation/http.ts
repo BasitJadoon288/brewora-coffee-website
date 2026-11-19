@@ -15,6 +15,10 @@ export const validate = (schema: ZodSchema, part: 'body' | 'query' = 'body'): Re
   if (part === 'body') req.body = r.data; else (req as any).validated = r.data;
   next();
 };
+/** Marks a GET response as publicly cacheable by browsers/CDN (Vercel edge). Removed again by the error handler, so errors are never cached. */
+export const publicCache = (seconds: number, staleSeconds = seconds * 5): RequestHandler => (_req, res, next) => {
+  res.setHeader('Cache-Control', `public, max-age=${Math.min(seconds, 10)}, s-maxage=${seconds}, stale-while-revalidate=${staleSeconds}`); next();
+};
 export const validated = <T>(req: Request) => (req as any).validated as T;
 export const viewerOf = (req: Request): Viewer | undefined => req.user;
 export const pageRequest = (q: any, max = 100): PageRequest => ({ page: Math.max(1, parseInt(q.page) || 1), limit: Math.min(max, Math.max(1, parseInt(q.limit) || 20)) });
@@ -39,6 +43,7 @@ export type AuthGuards = ReturnType<typeof createAuthGuards>;
 
 const STATUS: Record<ErrorKind, number> = { invalid: 400, unauthorized: 401, forbidden: 403, not_found: 404, conflict: 409, unavailable: 503 };
 export const createErrorHandler = (log: { error(obj: unknown, msg?: string): void }) => (err: any, _req: Request, res: Response, _next: NextFunction) => {
+  res.removeHeader('Cache-Control');
   if (err instanceof ZodError) return res.status(400).json({ message: 'Validation failed', errors: err.flatten().fieldErrors });
   if (err instanceof DomainError) return res.status(STATUS[err.kind]).json({ message: err.message, ...(err.details ? { details: err.details } : {}) });
   if (err?.type === 'entity.parse.failed') return res.status(400).json({ message: 'Malformed JSON' });
