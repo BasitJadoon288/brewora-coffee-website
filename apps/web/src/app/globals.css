@@ -32,3 +32,18 @@ img { @apply max-w-full; }
 .menu-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s ease; }
 .menu-grid[data-open='true'] { grid-template-rows: 1fr; }
 .menu-grid > div { overflow: hidden; }
+
+/* ---------- Admin UI helpers: the same look as the storefront (cream page, white cards, soft shadow, espresso sidebar) ---------- */
+@layer components {
+  .ui-raised, .ui-raised-sm { @apply bg-white shadow-soft; }
+  .ui-inset { @apply bg-espresso/5; }
+  .ui-press { @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0; }
+  .ui-sidebar { @apply bg-espresso; }
+  .ui-dark-raised { @apply bg-cream/10; }
+  .ui-dark-inset { @apply bg-cream/15; }
+  .ui-dark-hover { @apply transition duration-200 hover:bg-cream/10; }
+  .ui-topbar { @apply border-b border-espresso/10 bg-cream/95 backdrop-blur; }
+  .ui-hover-raised { @apply transition duration-200 hover:bg-espresso/10; }
+  .ui-scroll { scrollbar-width: thin; }
+}
+@media (prefers-reduced-motion: reduce) { .ui-press { transition: none; transform: none !important; } }
