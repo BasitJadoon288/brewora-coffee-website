@@ -9,6 +9,6 @@ export default function OrderSummary({ o }: { o: Order }) {
         <div className="flex justify-between"><dt>Delivery</dt><dd>{o.deliveryCharges ? money(o.deliveryCharges) : 'Free'}</dd></div>{o.tax > 0 && <div className="flex justify-between"><dt>Tax</dt><dd>{money(o.tax)}</dd></div>}
         <div className="flex justify-between border-t border-espresso/10 pt-2 text-base font-semibold text-espresso"><dt>Total</dt><dd>{money(o.totalAmount)}</dd></div></dl></div>
     <div className="grid gap-4 sm:grid-cols-2"><div className="rounded-2xl bg-white p-5 text-sm shadow-soft"><p className="font-semibold">Customer</p><p className="mt-1 text-charcoal/70">{o.customerDetails.fullName}<br />{o.customerDetails.email}<br />{o.customerDetails.phone}</p></div>
-      <div className="rounded-2xl bg-white p-5 text-sm shadow-soft"><p className="font-semibold">Delivery address</p><p className="mt-1 text-charcoal/70">{o.shippingAddress.line1}<br />{o.shippingAddress.city} {o.shippingAddress.postalCode}</p></div></div>
+      <div className="rounded-2xl bg-white p-5 text-sm shadow-soft"><p className="font-semibold">Delivery address</p><p className="mt-1 text-charcoal/70">{o.shippingAddress.line1}<br />{o.shippingAddress.area && <>{o.shippingAddress.area}, </>}{o.shippingAddress.city} {o.shippingAddress.postalCode}</p></div></div>
   </div>;
 }

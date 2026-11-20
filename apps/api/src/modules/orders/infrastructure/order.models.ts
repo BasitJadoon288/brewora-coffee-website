@@ -9,7 +9,7 @@ const orderSchema = new Schema({
   paymentMethod: { type: String, enum: ['COD', 'JazzCash', 'EasyPaisa', 'BankTransfer'], required: true },
   paymentStatus: { type: String, enum: ['Pending', 'Paid', 'Failed', 'Refunded'], default: 'Pending' },
   orderStatus: { type: String, enum: ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'], default: 'Pending' },
-  shippingAddress: { line1: String, city: String, postalCode: String },
+  shippingAddress: { line1: String, city: String, area: String, postalCode: String },
   refund: { status: { type: String, enum: ['None', 'Requested', 'Refunded'], default: 'None' }, amount: Number, note: String, at: Date },
   statusHistory: [{ _id: false, status: String, at: { type: Date, default: Date.now }, by: Schema.Types.ObjectId, note: String }],
 }, { timestamps: true });

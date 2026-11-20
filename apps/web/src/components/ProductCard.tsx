@@ -10,7 +10,7 @@ export default function ProductCard({ p }: { p: Product }) {
     <Link href={`/product/${p.slug}`} className="group block overflow-hidden rounded-2xl bg-white shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-xl">
       <div className="relative aspect-square overflow-hidden">
         <ProductImage src={p.images?.[0]?.url} alt={p.images?.[0]?.alt || p.name} className="h-full w-full transition duration-500 group-hover:scale-110" />
-        <WishlistButton productId={p.id} className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow-soft" />
+        <WishlistButton productId={p.id} className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-espresso shadow-soft transition hover:bg-white hover:text-red-600" />
         {sale && <span className="absolute left-3 top-3 rounded-full bg-caramel px-3 py-1 text-xs font-semibold text-espresso">Sale</span>}
         {p.stockQuantity === 0 && <span className="absolute bottom-3 left-3 rounded-full bg-charcoal px-3 py-1 text-xs text-cream">Sold out</span>}
       </div>

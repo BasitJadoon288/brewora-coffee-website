@@ -9,11 +9,12 @@ export interface PublicSettings { storeName: string; logo?: string; freeDelivery
   paymentMethods: Record<'COD' | 'JazzCash' | 'EasyPaisa' | 'BankTransfer', boolean>; bank?: { bankName?: string; accountTitle?: string; accountNumber?: string; iban?: string; instructions?: string }; social?: Record<string, string> }
 export interface OrderItem { productId: string; name: string; sku: string; variant?: string; image?: string; unitPrice: number; quantity: number; lineTotal: number }
 export interface Order { id: string; orderNumber: string; customerDetails: { fullName: string; email: string; phone: string; notes?: string }; items: OrderItem[]; subTotal: number; deliveryCharges: number; discount: number; tax: number; totalAmount: number;
-  couponCode?: string; paymentMethod: PaymentMethod; paymentStatus: string; orderStatus: string; shippingAddress: { line1: string; city: string; postalCode?: string };
+  couponCode?: string; paymentMethod: PaymentMethod; paymentStatus: string; orderStatus: string; shippingAddress: { line1: string; city: string; area?: string; postalCode?: string };
   refund?: { status: string; amount?: number }; statusHistory: { status: string; at: string; note?: string }[]; createdAt: string; payment?: { paymentStatus: string; transactionReference?: string } | null }
 export type PaymentMethod = 'COD' | 'JazzCash' | 'EasyPaisa' | 'BankTransfer';
 export interface Address { id: string; label: string; fullName: string; phone: string; line1: string; city: string; postalCode?: string; isDefault: boolean }
 export interface Review { id: string; userName?: string; rating: number; comment?: string; isVerifiedPurchase: boolean; createdAt: string }
 export interface Quote { lines: { productId: string; name: string; variant?: string; unitPrice: number; quantity: number; lineTotal: number }[]; subTotal: number; discount: number; deliveryCharges: number; tax: number; totalAmount: number; coupon: string | null }
+export interface DeliveryArea { id: string; name: string; city: string; charge: number; freeDeliveryThreshold: number | null }
 export const money = (n: number) => `Rs. ${Math.round(n).toLocaleString('en-US')}`;
 export const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });

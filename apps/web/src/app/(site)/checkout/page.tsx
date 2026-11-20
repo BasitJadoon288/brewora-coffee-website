@@ -10,7 +10,7 @@ import { Empty, Field, Loading } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useCart } from '@/lib/cart';
 import { toQuoteItems } from '@/lib/cart-logic';
-import type { Address, Order, PaymentMethod, PublicSettings } from '@/lib/types';
+import type { Address, DeliveryArea, Order, PaymentMethod, PublicSettings } from '@/lib/types';
 import { money } from '@/lib/types';
 import { getCoupon, PHONE_RE, postForm, setCouponStore, uuid } from '@/lib/util';
 import { useQuote } from '@/lib/useQuote';
@@ -20,7 +20,10 @@ const METHODS: { id: PaymentMethod; label: string; hint: string }[] = [
 export default function Checkout() {
   const { user } = useAuth(); const { lines, loading, clearLocal, refresh } = useCart(); const router = useRouter(); const toast = useToast();
   const [coupon, setCoupon] = useState(''); useEffect(() => setCoupon(getCoupon()), []);
-  const { data: q, error } = useQuote(lines, coupon);
+  const [areaId, setAreaId] = useState('');
+  const { data: q, error } = useQuote(lines, coupon, areaId);
+  const { data: areas } = useQuery({ queryKey: ['delivery-areas'], queryFn: () => api<DeliveryArea[]>('/delivery-areas') });
+  const hasAreas = !!areas?.length; const area = areas?.find(a => a.id === areaId);
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: () => api<PublicSettings>('/settings/public') });
   const { data: addresses } = useQuery({ queryKey: ['addresses'], enabled: !!user, queryFn: () => api<Address[]>('/addresses') });
   const [v, setV] = useState({ fullName: '', email: '', phone: '', line1: '', city: '', postalCode: '', notes: '' }); const [method, setMethod] = useState<PaymentMethod | ''>('');
@@ -33,11 +36,12 @@ export default function Checkout() {
   async function place(e: React.FormEvent) {
     e.preventDefault(); setErr('');
     if (!PHONE_RE.test(v.phone)) return setErr('Enter a valid Pakistani mobile number, e.g. 03001234567');
+    if (hasAreas && !areaId) return setErr('Select your delivery area');
     if (!method) return setErr('Select a payment method');
     setBusy(true);
     try {
-      const r = await api<{ order: Order }>('/orders', { method: 'POST', body: { items: toQuoteItems(lines), couponCode: coupon || undefined, idempotencyKey: idem.current, paymentMethod: method,
-        customer: { fullName: v.fullName, email: v.email, phone: v.phone, notes: v.notes || undefined }, shippingAddress: { line1: v.line1, city: v.city, postalCode: v.postalCode || undefined } } });
+      const r = await api<{ order: Order }>('/orders', { method: 'POST', body: { items: toQuoteItems(lines), couponCode: coupon || undefined, areaId: areaId || undefined, idempotencyKey: idem.current, paymentMethod: method,
+        customer: { fullName: v.fullName, email: v.email, phone: v.phone, notes: v.notes || undefined }, shippingAddress: { line1: v.line1, city: hasAreas ? (area?.city ?? 'Karachi') : v.city, postalCode: v.postalCode || undefined } } });
       try { sessionStorage.setItem('brewora_last_order', JSON.stringify(r.order)); } catch { /* ignore */ }
       clearLocal(); setCouponStore(''); await refresh().catch(() => undefined);
       if (method === 'JazzCash' || method === 'EasyPaisa') {
@@ -61,7 +65,8 @@ export default function Checkout() {
           <Field label="Email" htmlFor="em"><input id="em" type="email" className="input" autoComplete="email" value={v.email} onChange={set('email')} required /></Field></div>
         <Field label="Phone number" htmlFor="ph" hint="e.g. 03001234567"><input id="ph" className="input" autoComplete="tel" value={v.phone} onChange={set('phone')} required /></Field>
         <Field label="Complete address" htmlFor="ad"><input id="ad" className="input" autoComplete="street-address" value={v.line1} onChange={set('line1')} required minLength={5} /></Field>
-        <div className="grid gap-4 sm:grid-cols-2"><Field label="City" htmlFor="ct"><input id="ct" className="input" autoComplete="address-level2" value={v.city} onChange={set('city')} required /></Field><Field label="Postal code" htmlFor="pc"><input id="pc" className="input" autoComplete="postal-code" value={v.postalCode} onChange={set('postalCode')} /></Field></div>
+        <div className="grid gap-4 sm:grid-cols-2">{hasAreas ? <Field label="Delivery area" htmlFor="ar" hint={area ? `Delivery charge: ${area.charge ? money(area.charge) : 'Free'}` : 'Delivery charge depends on your area'}><select id="ar" className="input" value={areaId} onChange={e => setAreaId(e.target.value)} required><option value="">Select your area…</option>{areas!.map(a => <option key={a.id} value={a.id}>{a.name}{a.city ? `, ${a.city}` : ''} — {a.charge ? money(a.charge) : 'Free'}</option>)}</select></Field>
+          : <Field label="City" htmlFor="ct"><input id="ct" className="input" autoComplete="address-level2" value={v.city} onChange={set('city')} required /></Field>}<Field label="Postal code" htmlFor="pc"><input id="pc" className="input" autoComplete="postal-code" value={v.postalCode} onChange={set('postalCode')} /></Field></div>
         <Field label="Order notes (optional)" htmlFor="nt"><textarea id="nt" className="input min-h-20" maxLength={500} value={v.notes} onChange={set('notes')} /></Field></section>
       <section className="rounded-2xl bg-white p-6 shadow-soft"><h2 className="font-display text-xl text-espresso">Payment method</h2>
         {enabled.length === 0 ? <p className="mt-3 text-sm text-red-700">No payment methods are available right now.</p> : <div className="mt-4 space-y-3" role="radiogroup" aria-label="Payment method">{enabled.map(m => <label key={m.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${method === m.id ? 'border-espresso bg-espresso/5' : 'border-espresso/15'}`}>
@@ -70,6 +75,6 @@ export default function Checkout() {
         <ul className="space-y-2 text-sm">{lines.map(l => <li key={l.key} className="flex justify-between gap-2"><span>{l.name}{l.variant && ` (${l.variant})`} × {l.quantity}</span><span>{money(l.unitPrice * l.quantity)}</span></li>)}</ul>
         {q ? <CartSummary q={q} /> : error ? <p role="alert" className="text-sm text-red-700">{error instanceof ApiError ? error.message : 'Could not calculate totals'} <Link href="/cart" className="underline">Back to cart</Link></p> : <p className="text-sm text-charcoal/60">Calculating…</p>}
         {err && <p role="alert" className="text-sm text-red-700">{err}</p>}
-        <button disabled={busy || !q || !method} className="btn-gold w-full disabled:opacity-50">{busy ? 'Placing order…' : method === 'JazzCash' || method === 'EasyPaisa' ? 'Place order & pay' : 'Place order'}</button>
+        <button disabled={busy || !q || !method || (hasAreas && !areaId)} className="btn-gold w-full disabled:opacity-50">{busy ? 'Placing order…' : method === 'JazzCash' || method === 'EasyPaisa' ? 'Place order & pay' : 'Place order'}</button>
         <p className="text-center text-xs text-charcoal/50">Prices are confirmed by our server when you place the order.</p></aside></form></div>;
 }

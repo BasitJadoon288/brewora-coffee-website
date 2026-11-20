@@ -1,6 +1,7 @@
 'use client';
 import { X } from 'lucide-react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 export const Spinner = ({ className = '' }: { className?: string }) => <div role="status" aria-label="Loading" className={`h-6 w-6 animate-spin rounded-full border-2 border-espresso/20 border-t-caramel ${className}`} />;
 export const Skeleton = ({ className = '' }: { className?: string }) => <div className={`animate-pulse rounded-lg bg-espresso/10 ${className}`} />;
 export const Loading = ({ label = 'Loading…' }: { label?: string }) => <div className="flex items-center justify-center gap-3 py-16 text-charcoal/60"><Spinner />{label}</div>;
@@ -12,10 +13,11 @@ export function Empty({ title, text, children }: { title: string; text?: string;
 }
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => { if (!open) return; const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open, onClose]);
-  if (!open) return null;
-  return <div className="modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-4" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+  if (!open || typeof document === 'undefined') return null;
+  // Rendered in <body> so no animated/transformed ancestor (e.g. the page fade-in) can clip or shrink the overlay.
+  return createPortal(<div className="modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-4" onMouseDown={e => e.target === e.currentTarget && onClose()}>
     <div role="dialog" aria-modal="true" aria-label={title} className={`modal-pop my-4 w-full rounded-2xl bg-cream p-4 shadow-soft sm:my-8 sm:p-6 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}>
-      <div className="mb-4 flex items-center justify-between"><h2 className="font-display text-xl text-espresso">{title}</h2><button onClick={onClose} aria-label="Close" className="rounded-full p-1 hover:bg-espresso/10"><X className="h-5 w-5" /></button></div>{children}</div></div>;
+      <div className="mb-4 flex items-center justify-between"><h2 className="font-display text-xl text-espresso">{title}</h2><button onClick={onClose} aria-label="Close" className="rounded-full p-1 hover:bg-espresso/10"><X className="h-5 w-5" /></button></div>{children}</div></div>, document.body);
 }
 export function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (p: number) => void }) {
   if (pages <= 1) return null;

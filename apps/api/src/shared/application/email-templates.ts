@@ -40,7 +40,7 @@ export const resetPasswordMail = (p: { name: string; otp: string; link: string; 
 });
 
 export interface MailOrder { orderNumber: string; customerDetails: { fullName: string }; items: { name: string; variant?: string; quantity: number; unitPrice: number; lineTotal: number }[];
-  subTotal: number; deliveryCharges: number; discount: number; tax: number; totalAmount: number; paymentMethod: string; shippingAddress: { line1: string; city: string; postalCode?: string } }
+  subTotal: number; deliveryCharges: number; discount: number; tax: number; totalAmount: number; paymentMethod: string; shippingAddress: { line1: string; city: string; area?: string; postalCode?: string } }
 
 export const orderConfirmationMail = (o: MailOrder): MailContent => {
   const rows = o.items.map(i => `<tr><td style="padding:8px 0;border-bottom:1px solid #f0e8da;">${e(i.name)}${i.variant ? ` <span style="color:${MUTED};">(${e(i.variant)})</span>` : ''}<br><span style="color:${MUTED};font-size:13px;">${i.quantity} &times; ${rs(i.unitPrice)}</span></td><td align="right" style="padding:8px 0;border-bottom:1px solid #f0e8da;white-space:nowrap;">${rs(i.lineTotal)}</td></tr>`).join('');
@@ -56,7 +56,7 @@ export const orderConfirmationMail = (o: MailOrder): MailContent => {
       ${line('Subtotal', rs(o.subTotal))}${o.discount ? line('Discount', `- ${rs(o.discount)}`) : ''}${o.tax ? line('Tax', rs(o.tax)) : ''}${line('Delivery', o.deliveryCharges ? rs(o.deliveryCharges) : 'Free')}${line('Total', rs(o.totalAmount), true)}
     </table>
     <p style="margin:18px 0 4px;color:${MUTED};font-size:13px;">PAYMENT METHOD</p><p style="margin:0;">${e(o.paymentMethod)}</p>
-    <p style="margin:14px 0 4px;color:${MUTED};font-size:13px;">DELIVERY ADDRESS</p><p style="margin:0 0 14px;">${e(a.line1)}, ${e(a.city)}${a.postalCode ? ` ${e(a.postalCode)}` : ''}</p>`),
+    <p style="margin:14px 0 4px;color:${MUTED};font-size:13px;">DELIVERY ADDRESS</p><p style="margin:0 0 14px;">${e(a.line1)}, ${a.area ? `${e(a.area)}, ` : ''}${e(a.city)}${a.postalCode ? ` ${e(a.postalCode)}` : ''}</p>`),
   };
 };
 

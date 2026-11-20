@@ -55,6 +55,10 @@ async function main() {
     { code: 'FLAT200', description: 'Rs. 200 off orders above Rs. 2,000', discountType: 'Fixed' as const, discountValue: 200, minimumOrderAmount: 2000, isActive: true },
     { code: 'EXPIRED5', description: 'Expired sample', discountType: 'Percentage' as const, discountValue: 5, minimumOrderAmount: 0, expiryDate: new Date('2020-01-01'), isActive: true }])
     if (!(await r.coupons.findByCode(cp.code))) await u.promotions.manage.create(cp);
+  if ((await r.areas.list(undefined, { page: 1, limit: 1 })).total === 0) {
+    const areas: [string, number][] = [['Clifton', 150], ['DHA', 150], ['Gulshan-e-Iqbal', 200], ['Gulistan-e-Johar', 200], ['North Nazimabad', 220], ['PECHS', 180], ['Saddar', 180], ['Nazimabad', 220], ['Korangi', 250], ['Malir', 280], ['Bahadurabad', 180], ['FB Area', 220]];
+    for (const [i, [name, charge]] of areas.entries()) await r.areas.create({ name, city: 'Karachi', charge, freeDeliveryThreshold: null, isActive: true, sortOrder: i });
+  }
   const one = { page: 1, limit: 1 };
   if ((await r.banners.list(undefined, one)).total === 0) {
     await r.banners.create({ title: 'Discover the Perfect Cup', subtitle: 'Rich Flavor. Premium Quality. Delivered to Your Doorstep.', image: '/assets/banners/hero.jpg', linkUrl: '/shop', buttonText: 'Shop Now', placement: 'hero', sortOrder: 0, isActive: true });

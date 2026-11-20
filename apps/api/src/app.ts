@@ -20,6 +20,8 @@ import { buildAdminContentRoutes, buildPublicContentRoutes } from './modules/con
 import { contactDto, contactUpdateDto } from './modules/engagement/application/engagement.dto';
 import { bannerDto, testimonialDto } from './modules/content/application/content.dto';
 import { buildAdminSettingsRoutes, buildPublicSettingsRoutes } from './modules/settings/presentation/settings.routes';
+import { deliveryAreaDto, deliveryAreaUpdateDto } from './modules/delivery/application/delivery.dto';
+import { buildPublicDeliveryRoutes } from './modules/delivery/presentation/delivery.routes';
 import { buildCouponAdminRoutes, buildCouponPublicRoutes } from './modules/promotions/presentation/promotion.routes';
 import { buildAdminRoutes } from './modules/reporting/presentation/admin.routes';
 import { buildUploadRoutes } from './modules/uploads/presentation/upload.routes';
@@ -48,7 +50,7 @@ export function createApp(c: Container, env: Env) {
   app.get('/api/health', (_q, r) => r.json({ ok: true }));
 
   // public, rarely-changing storefront reads: cacheable by the browser/CDN (short TTLs, stale-while-revalidate)
-  app.get(['/api/categories', '/api/banners', '/api/testimonials', '/api/content/:key', '/api/settings/public'], publicCache(60));
+  app.get(['/api/categories', '/api/banners', '/api/testimonials', '/api/content/:key', '/api/settings/public', '/api/delivery-areas'], publicCache(60));
   app.get(['/api/products', '/api/products/slug/:slug', '/api/products/:id'], publicCache(30));
   // strict limit for login/register/password flows only; session checks (profile / refresh) are called on every page load and must not be blocked
   app.use('/api/auth', rateLimit({ windowMs: 15 * 60_000, limit: 40, skip: req => skip() || ['/profile', '/refresh-token'].includes(req.path) }), buildAuthRoutes(k.auth, g));
@@ -61,6 +63,7 @@ export function createApp(c: Container, env: Env) {
   app.use('/api/newsletter', rateLimit({ windowMs: 60_000, limit: 10, skip }), buildNewsletterRoutes(k.engagement));
   app.use('/api/contact', rateLimit({ windowMs: 60_000, limit: 5, skip }), buildContactRoutes(k.engagement));
   app.use('/api/coupons', buildCouponPublicRoutes(u.promotions.validate));
+  app.use('/api/delivery-areas', buildPublicDeliveryRoutes(u.delivery.list));
   app.use('/api/settings', buildPublicSettingsRoutes(k.settings));
   app.use('/api/products', buildReviewRoutes(k.engagement, g));
   app.use('/api', buildCatalogRoutes(k.catalog, g));
@@ -70,6 +73,7 @@ export function createApp(c: Container, env: Env) {
   admin.use('/settings', buildAdminSettingsRoutes(k.settings));
   admin.use('/content', buildAdminContentRoutes(u.content.updatePage));
   admin.use('/coupons', buildCouponAdminRoutes(u.promotions.manage));
+  admin.use('/delivery-areas', crudRouter(u.delivery.manage, deliveryAreaDto, deliveryAreaUpdateDto));
   admin.use('/banners', crudRouter(u.content.manageBanners, bannerDto, bannerDto.partial()));
   admin.use('/testimonials', crudRouter(u.content.manageTestimonials, testimonialDto, testimonialDto.partial()));
   admin.use('/uploads', buildUploadRoutes(u.uploads.sign, u.uploads.image));

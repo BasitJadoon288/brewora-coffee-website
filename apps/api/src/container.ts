@@ -25,6 +25,8 @@ import { GetPublicSettings, GetSettings, UpdateSettings } from './modules/settin
 import { MongoSettingsRepository } from './modules/settings/infrastructure/mongo-settings.repository';
 import { SettingsController } from './modules/settings/presentation/settings.controller';
 
+import { ListActiveDeliveryAreas } from './modules/delivery/application/delivery.use-cases';
+import { MongoDeliveryAreaRepository } from './modules/delivery/infrastructure/mongo-delivery-area.repository';
 import { ManageCoupons, ValidateCoupon } from './modules/promotions/application/coupon.use-cases';
 import { MongoCouponRepository } from './modules/promotions/infrastructure/mongo-coupon.repository';
 
@@ -80,12 +82,12 @@ export function buildContainer(env: Env) {
     settings: new MongoSettingsRepository(), coupons: new MongoCouponRepository(), carts: new MongoCartRepository(), orders: new MongoOrderRepository(), payments: new MongoPaymentRepository(),
     reviews: new MongoReviewRepository(), wishlist: new MongoWishlistRepository(), addresses: new MongoAddressRepository(), notifications: new MongoNotificationRepository(),
     newsletter: new MongoNewsletterRepository(), banners: new MongoBannerRepository(), testimonials: new MongoTestimonialRepository(), pageContent: new MongoPageContentRepository(),
-    reporting: new MongoReportingRepository(), contact: new MongoContactRepository(),
+    reporting: new MongoReportingRepository(), contact: new MongoContactRepository(), areas: new MongoDeliveryAreaRepository(),
   };
   const uploadDir = path.resolve(env.UPLOAD_DIR ?? 'uploads');
   const numbers = new RandomOrderNumberGenerator();
   const notifier = new RepositoryNotifier(repos.notifications);
-  const quote = new QuoteService(repos.products, repos.coupons, repos.settings);
+  const quote = new QuoteService(repos.products, repos.coupons, repos.settings, repos.areas);
 
   // ---- identity
   const sessions = new Auth.SessionIssuer(repos.users, tokens);
@@ -141,6 +143,7 @@ export function buildContainer(env: Env) {
     manageBanners: new ManageResource(repos.banners, 'Banner'), manageTestimonials: new ManageResource(repos.testimonials, 'Testimonial') };
   const settings = { public: new GetPublicSettings(repos.settings), get: new GetSettings(repos.settings), update: new UpdateSettings(repos.settings) };
   const promotions = { manage: new ManageCoupons(repos.coupons), validate: new ValidateCoupon(repos.coupons) };
+  const delivery = { list: new ListActiveDeliveryAreas(repos.areas), manage: new ManageResource(repos.areas, 'Delivery area') };
   const uploads = { sign: new SignUpload(signer), image: new UploadImage(new LocalDiskImageStorage(uploadDir)) };
 
   // ---- reporting
@@ -150,7 +153,7 @@ export function buildContainer(env: Env) {
     setActive: new Rep.SetCustomerActive(repos.users), report: new Rep.GetReport(repos.reporting), analytics: new Rep.GetAnalytics(repos.reporting), subscribers: engagement.listSubscribers, settings: settings.get,
   };
 
-  const useCases = { auth, catalog, cart, orders, payments, engagement, content, settings, promotions, uploads, reporting };
+  const useCases = { auth, catalog, cart, orders, payments, engagement, content, settings, promotions, delivery, uploads, reporting };
   const controllers = {
     auth: new AuthController(auth, cookie), catalog: new CatalogController(catalog), cart: new CartController(cart),
     orders: new OrderController({ place: orders.place, mine: orders.mine, get: orders.get, track: orders.track, cancel: orders.cancel }),

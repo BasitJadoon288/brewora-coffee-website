@@ -8,7 +8,10 @@ import { serverGet } from '@/lib/server';
 import { money, type Product } from '@/lib/types';
 const load = (slug: string) => serverGet<Product | null>(`/api/products/slug/${encodeURIComponent(slug)}`, null);
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const p = await load(params.slug); return p ? { title: p.name, description: p.shortDescription } : { title: 'Product not found' };
+  const p = await load(params.slug); if (!p) return { title: 'Product not found', robots: { index: false } };
+  const img = p.images[0]?.url; const desc = p.shortDescription || p.description?.slice(0, 160);
+  return { title: p.name, description: desc, alternates: { canonical: `/product/${p.slug}` },
+    openGraph: { type: 'website', title: p.name, description: desc, url: `/product/${p.slug}`, ...(img && { images: [{ url: img, alt: p.name }] }) }, twitter: { card: 'summary_large_image', title: p.name, description: desc, ...(img && { images: [img] }) } };
 }
 export default async function ProductPage({ params }: { params: { slug: string } }) {
   const p = await load(params.slug); if (!p) notFound();

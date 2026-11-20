@@ -21,7 +21,7 @@ export class PlaceOrder {
     if (i.idempotencyKey) { const ex = await d.orders.findByIdempotencyKey(i.idempotencyKey); if (ex) return { order: ex, duplicate: true }; }
     const settings = await d.settings.get(); // cached; the quote below reuses the same cached copy
     if (!settings.paymentMethods[i.paymentMethod]) throw new BadRequestError(`${i.paymentMethod} is not available`);
-    const q = await d.quote.execute(i.items, i.couponCode);
+    const q = await d.quote.execute(i.items, i.couponCode, i.areaId);
 
     const reserved: { productId: string; qty: number; balance: number }[] = [];
     let couponId: string | null = null; let orderId: string | null = null;
@@ -40,7 +40,7 @@ export class PlaceOrder {
       const order = await d.orders.create({
         orderNumber: d.numbers.next(), idempotencyKey: i.idempotencyKey, userId,
         customerDetails: { ...i.customer, email: i.customer.email.toLowerCase() }, items: q.lines, subTotal: q.subTotal, deliveryCharges: q.deliveryCharges,
-        discount: q.discount, tax: q.tax, totalAmount: q.totalAmount, couponCode: q.coupon?.code, paymentMethod: i.paymentMethod, shippingAddress: i.shippingAddress,
+        discount: q.discount, tax: q.tax, totalAmount: q.totalAmount, couponCode: q.coupon?.code, paymentMethod: i.paymentMethod, shippingAddress: { ...i.shippingAddress, area: q.deliveryArea?.name },
         statusHistory: [{ status: 'Pending', at: new Date(), by: userId, note: 'Order placed' }],
       });
       orderId = order.id;

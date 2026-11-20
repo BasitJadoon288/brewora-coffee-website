@@ -1,5 +1,5 @@
 'use client';
-import { Bell, BarChart3, Boxes, Coffee, FileText, Image as ImageIcon, LayoutDashboard, LogOut, Mail, Menu, MessageSquare, Package, Settings, ShoppingCart, Star, Store, Tag, Users, X, Layers, Quote, LineChart } from 'lucide-react';
+import { Bell, BarChart3, Boxes, Coffee, FileText, Image as ImageIcon, LayoutDashboard, LogOut, Mail, Menu, MessageSquare, Package, Settings, ShoppingCart, Star, Store, Tag, Truck, Users, X, Layers, Quote, LineChart } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ import { fmtDate } from '@/lib/types';
 const GROUPS: { title: string; items: { href: string; label: string; Icon: any }[] }[] = [
   { title: '', items: [{ href: '/admin', label: 'Dashboard', Icon: LayoutDashboard }] },
   { title: 'Catalog', items: [{ href: '/admin/products', label: 'Products', Icon: Package }, { href: '/admin/categories', label: 'Categories', Icon: Layers }, { href: '/admin/inventory', label: 'Inventory', Icon: Boxes }] },
-  { title: 'Sales', items: [{ href: '/admin/orders', label: 'Orders', Icon: ShoppingCart }, { href: '/admin/customers', label: 'Customers', Icon: Users }, { href: '/admin/coupons', label: 'Coupons', Icon: Tag }, { href: '/admin/reviews', label: 'Reviews', Icon: Star }] },
+  { title: 'Sales', items: [{ href: '/admin/orders', label: 'Orders', Icon: ShoppingCart }, { href: '/admin/customers', label: 'Customers', Icon: Users }, { href: '/admin/delivery-areas', label: 'Delivery areas', Icon: Truck }, { href: '/admin/coupons', label: 'Coupons', Icon: Tag }, { href: '/admin/reviews', label: 'Reviews', Icon: Star }] },
   { title: 'Website', items: [{ href: '/admin/banners', label: 'Banners', Icon: ImageIcon }, { href: '/admin/testimonials', label: 'Testimonials', Icon: Quote }, { href: '/admin/content', label: 'Pages & content', Icon: FileText }, { href: '/admin/messages', label: 'Messages', Icon: MessageSquare }, { href: '/admin/newsletter', label: 'Newsletter', Icon: Mail }] },
   { title: 'Insights', items: [{ href: '/admin/reports', label: 'Reports', Icon: BarChart3 }, { href: '/admin/analytics', label: 'Analytics', Icon: LineChart }] },
   { title: 'Store', items: [{ href: '/admin/settings', label: 'Settings', Icon: Settings }] },

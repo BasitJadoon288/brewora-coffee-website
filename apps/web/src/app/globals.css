@@ -19,7 +19,7 @@ img { @apply max-w-full; }
   .fade-up { animation: fadeUp .7s cubic-bezier(.22,.61,.36,1) both; }
   .fade-up-2 { animation: fadeUp .7s .12s cubic-bezier(.22,.61,.36,1) both; }
   .fade-up-3 { animation: fadeUp .7s .24s cubic-bezier(.22,.61,.36,1) both; }
-  .page-enter { animation: fadeUp .45s cubic-bezier(.22,.61,.36,1) both; }
+  .page-enter { animation: fadeIn .35s ease both; } /* opacity only: a transform here would trap position:fixed children (modals) inside the page box */
   .img-in { animation: fadeIn .5s ease both; }
   .modal-backdrop { animation: fadeIn .2s ease both; }
   .modal-pop { animation: popIn .25s cubic-bezier(.22,.61,.36,1) both; }

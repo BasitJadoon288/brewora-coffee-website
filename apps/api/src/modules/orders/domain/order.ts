@@ -10,7 +10,7 @@ export interface Order {
   customerDetails: { fullName: string; email: string; phone: string; notes?: string };
   items: OrderItem[]; subTotal: number; deliveryCharges: number; discount: number; tax: number; totalAmount: number; couponCode?: string;
   paymentMethod: PaymentMethod; paymentStatus: PaymentStatus; orderStatus: OrderStatus;
-  shippingAddress: { line1: string; city: string; postalCode?: string };
+  shippingAddress: { line1: string; city: string; area?: string; postalCode?: string };
   refund: { status: 'None' | 'Requested' | 'Refunded'; amount?: number; note?: string; at?: Date };
   statusHistory: StatusEntry[]; createdAt: Date; updatedAt: Date;
 }
