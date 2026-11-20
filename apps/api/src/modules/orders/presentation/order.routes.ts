@@ -7,6 +7,8 @@ export function buildOrderRoutes(c: OrderController, g: AuthGuards) {
   r.post('/', g.optionalAuth, validate(placeOrderDto), c.place);
   r.get('/my-orders', g.authenticate, c.mine);
   r.get('/track/:orderNumber', c.track);
+  r.get('/track/:orderNumber/receipt', c.guestReceipt);
+  r.get('/:id/receipt', g.authenticate, c.receipt);
   r.get('/:id', g.authenticate, c.get);
   r.post('/:id/cancel', g.authenticate, c.cancel);
   return r;

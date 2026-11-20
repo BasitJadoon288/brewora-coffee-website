@@ -1,5 +1,6 @@
 import { Role } from '../domain/types';
-export interface Mailer { /** Never throws: e-mail failure must not break business flows. */ send(to: string, subject: string, html: string): Promise<boolean> }
+export interface MailAttachment { filename: string; content: Buffer; contentType?: string }
+export interface Mailer { /** Never throws: e-mail failure must not break business flows. */ send(to: string, subject: string, html: string, attachments?: MailAttachment[]): Promise<boolean> }
 export interface PasswordHasher { hash(plain: string): Promise<string>; compare(plain: string, hash: string): Promise<boolean> }
 export interface TokenService {
   issueAccessToken(u: { id: string; role: Role }): string;

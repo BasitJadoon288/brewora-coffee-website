@@ -1,4 +1,5 @@
 import { orderStatusMail } from '../../../shared/application/email-templates';
+import { buildReceiptPdf, receiptKindOf } from '../../../shared/application/receipt-pdf';
 import { Mailer, Notifier } from '../../../shared/application/ports';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../../shared/domain/errors';
 import { PageRequest } from '../../../shared/domain/pagination';
@@ -7,6 +8,7 @@ import { InventoryLedger } from '../../catalog/domain/inventory';
 import { ProductRepository } from '../../catalog/domain/product';
 import { UserRepository } from '../../identity/domain/user';
 import { CouponRepository } from '../../promotions/domain/coupon';
+import { SettingsRepository } from '../../settings/domain/settings';
 import { canAccessOrder, canTransition, Order, OrderRepository, OrderStatus } from '../domain/order';
 import { PaymentRepository } from '../domain/payment';
 
@@ -35,7 +37,7 @@ export class TrackOrder {
     return { orderNumber: o.orderNumber, orderStatus: o.orderStatus, paymentStatus: o.paymentStatus, paymentMethod: o.paymentMethod, totalAmount: o.totalAmount, createdAt: o.createdAt, history: o.statusHistory.map(h => ({ status: h.status, at: h.at })) };
   }
 }
-export interface OrderLifecycleDeps { orders: OrderRepository; payments: PaymentRepository; products: ProductRepository; coupons: CouponRepository; ledger: InventoryLedger; notifier: Notifier; mailer: Mailer }
+export interface OrderLifecycleDeps { orders: OrderRepository; payments: PaymentRepository; products: ProductRepository; coupons: CouponRepository; ledger: InventoryLedger; notifier: Notifier; mailer: Mailer; settings: SettingsRepository }
 
 export class UpdateOrderStatus {
   constructor(private d: OrderLifecycleDeps) {}
@@ -55,8 +57,15 @@ export class UpdateOrderStatus {
     }
     if (to === 'Delivered' && order.paymentMethod === 'COD') { await Promise.all([d.orders.setPaymentStatus(orderId, 'Paid'), d.payments.updateByOrderId(orderId, { paymentStatus: 'Paid', verifiedAt: new Date() })]); }
     if (order.userId) void d.notifier.toUser(order.userId, { title: `Order ${to}`, message: order.orderNumber, type: 'order', link: `/account/orders/${orderId}` });
-    { const mail = orderStatusMail(order, to); void d.mailer.send(order.customerDetails.email, mail.subject, mail.html); }
-    return (await d.orders.findById(orderId))!;
+    const fresh = (await d.orders.findById(orderId))!;
+    {
+      const mail = orderStatusMail(order, to); let pdf: { filename: string; content: Buffer }[] | undefined;
+      if (to === 'Delivered') { // delivery receipt, built from the refreshed order so a COD order shows as Paid
+        try { pdf = [{ filename: `Delivery-Receipt-${fresh.orderNumber}.pdf`, content: buildReceiptPdf(fresh, await d.settings.get(), 'delivery') }]; } catch { /* mail still goes out */ }
+      }
+      void d.mailer.send(order.customerDetails.email, mail.subject, mail.html, pdf);
+    }
+    return fresh;
   }
 }
 export class CancelOwnOrder {
@@ -92,4 +101,13 @@ export class RefundOrder {
     ]);
     return (await this.orders.findById(orderId))!;
   }
+}
+
+/** Receipt PDF for download: customers (own orders), guests (order number + e-mail, like tracking) and admins. */
+export class GenerateReceipt {
+  constructor(private orders: OrderRepository, private settings: SettingsRepository) {}
+  private async build(o: Order) { const kind = receiptKindOf(o); return { filename: `${kind === 'delivery' ? 'Delivery' : 'Order'}-Receipt-${o.orderNumber}.pdf`, pdf: buildReceiptPdf(o, await this.settings.get(), kind) }; }
+  async forViewer(id: string, viewer: Viewer) { const o = await this.orders.findById(id); if (!o || !canAccessOrder(o, viewer)) throw new NotFoundError('Order not found'); return this.build(o); }
+  async forAdmin(id: string) { const o = await this.orders.findById(id); if (!o) throw new NotFoundError('Order not found'); return this.build(o); }
+  async forGuest(orderNumber: string, email: string) { const o = email ? await this.orders.findByNumberAndEmail(orderNumber, email.toLowerCase()) : null; if (!o) throw new NotFoundError('Order not found'); return this.build(o); }
 }

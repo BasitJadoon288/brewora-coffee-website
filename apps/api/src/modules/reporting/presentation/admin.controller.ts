@@ -1,7 +1,7 @@
 import { Request } from 'express';
 import { asyncHandler, pageRequest } from '../../../shared/presentation/http';
 import { toCsv } from '../../../shared/presentation/csv';
-import { UpdateOrderStatus, MarkPaymentStatus, RefundOrder, GetOrderDetailForAdmin } from '../../orders/application/order.use-cases';
+import { UpdateOrderStatus, MarkPaymentStatus, RefundOrder, GetOrderDetailForAdmin, GenerateReceipt } from '../../orders/application/order.use-cases';
 import { ListSubscribers } from '../../engagement/application/engagement.use-cases';
 import { GetSettings } from '../../settings/application/settings.use-cases';
 import * as UC from '../application/reporting.use-cases';
@@ -10,7 +10,7 @@ import { renderInvoice } from './invoice.view';
 const dateQ = (v: unknown) => { const d = v ? new Date(String(v)) : undefined; return d && !isNaN(+d) ? d : undefined; };
 export interface AdminUseCases {
   dashboard: UC.GetDashboard; searchOrders: UC.SearchOrders; orderDetail: GetOrderDetailForAdmin; updateStatus: UpdateOrderStatus; markPayment: MarkPaymentStatus; refund: RefundOrder;
-  customers: UC.ListCustomers; customer: UC.GetCustomerProfile; setActive: UC.SetCustomerActive; report: UC.GetReport; analytics: UC.GetAnalytics; subscribers: ListSubscribers; settings: GetSettings;
+  customers: UC.ListCustomers; customer: UC.GetCustomerProfile; setActive: UC.SetCustomerActive; report: UC.GetReport; analytics: UC.GetAnalytics; subscribers: ListSubscribers; settings: GetSettings; receipt: GenerateReceipt;
 }
 export class AdminController {
   constructor(private uc: AdminUseCases) {}
@@ -20,6 +20,7 @@ export class AdminController {
   });
   order = asyncHandler(async (req, res) => { res.json(await this.uc.orderDetail.execute(req.params.id)); });
   invoice = asyncHandler(async (req, res) => { const [o, s] = await Promise.all([this.uc.orderDetail.execute(req.params.id), this.uc.settings.execute()]); res.type('html').send(renderInvoice(o, s)); });
+  receipt = asyncHandler(async (req, res) => { const r = await this.uc.receipt.forAdmin(req.params.id); res.type('application/pdf').set('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${r.filename}"`).send(r.pdf); });
   status = asyncHandler(async (req, res) => { res.json(await this.uc.updateStatus.execute(req.params.id, req.body.status, req.user!.id, req.body.note)); });
   payment = asyncHandler(async (req, res) => { res.json(await this.uc.markPayment.execute(req.params.id, req.body.status, req.user!.id, req.body.reference)); });
   refund = asyncHandler(async (req, res) => { res.json(await this.uc.refund.execute(req.params.id, req.user!.id, req.body.amount, req.body.note)); });

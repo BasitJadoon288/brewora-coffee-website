@@ -1,6 +1,7 @@
 import { Mailer, Notifier } from '../../../shared/application/ports';
 import { BadRequestError, ConflictError } from '../../../shared/domain/errors';
 import { orderConfirmationMail } from '../../../shared/application/email-templates';
+import { buildReceiptPdf } from '../../../shared/application/receipt-pdf';
 import { CartRepository } from '../../cart/domain/cart';
 import { InventoryLedger } from '../../catalog/domain/inventory';
 import { ProductRepository } from '../../catalog/domain/product';
@@ -52,7 +53,11 @@ export class PlaceOrder {
       ]);
       const bad = writes.find((w): w is PromiseRejectedResult => w.status === 'rejected'); if (bad) throw bad.reason;
       void d.notifier.toAdmins({ title: 'New order', message: `${order.orderNumber} — Rs. ${order.totalAmount}`, type: 'order', link: `/admin/orders/${order.id}` });
-      { const mail = orderConfirmationMail(order); void d.mailer.send(order.customerDetails.email, mail.subject, mail.html); }
+      {
+        const mail = orderConfirmationMail(order); let pdf: { filename: string; content: Buffer }[] | undefined;
+        try { pdf = [{ filename: `Receipt-${order.orderNumber}.pdf`, content: buildReceiptPdf(order, settings, 'order') }]; } catch { /* the e-mail is still sent without the PDF */ }
+        void d.mailer.send(order.customerDetails.email, mail.subject, mail.html, pdf);
+      }
       return { order, duplicate: false };
     } catch (e) {
       await Promise.allSettled([

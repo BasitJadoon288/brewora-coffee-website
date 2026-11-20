@@ -55,6 +55,13 @@ export async function downloadFile(path: string, filename: string) {
   const r = await authed('/api' + path); if (!r.ok) return fail(r);
   const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
+/** Opens a PDF (e.g. receipt) in a new tab, or saves it when `filename` is given. Works for protected and public endpoints. */
+export async function openPdf(path: string, filename?: string) {
+  const r = await authed('/api' + path); if (!r.ok) return fail(r);
+  const url = URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: 'application/pdf' }));
+  if (filename) { const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); } else window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 /** Opens a protected HTML document (e.g. invoice) in a new tab. */
 export async function openHtml(path: string) {
   const r = await authed('/api' + path); if (!r.ok) return fail(r);

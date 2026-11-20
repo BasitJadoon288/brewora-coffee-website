@@ -116,13 +116,13 @@ export function buildContainer(env: Env) {
   const cart = { quote, get: new CartUC.GetCart(cartView), add: addCartItem, update: new CartUC.UpdateCartItem(repos.carts, addCartItem, cartView), remove: new CartUC.RemoveCartItem(repos.carts, cartView), merge: new CartUC.MergeGuestCart(repos.carts, repos.products, addCartItem, cartView) };
 
   // ---- orders & payments
-  const lifecycle = { orders: repos.orders, payments: repos.payments, products: repos.products, coupons: repos.coupons, ledger: repos.ledger, notifier, mailer };
+  const lifecycle = { orders: repos.orders, payments: repos.payments, products: repos.products, coupons: repos.coupons, ledger: repos.ledger, notifier, mailer, settings: repos.settings };
   const updateStatus = new OrderUC.UpdateOrderStatus(lifecycle);
   const placeOrder = new PlaceOrder({ quote, products: repos.products, coupons: repos.coupons, orders: repos.orders, payments: repos.payments, ledger: repos.ledger, carts: repos.carts, settings: repos.settings, numbers, notifier, mailer });
   const orders = {
     place: placeOrder, mine: new OrderUC.ListMyOrders(repos.orders), get: new OrderUC.GetOrder(repos.orders, repos.payments), track: new OrderUC.TrackOrder(repos.orders),
     cancel: new OrderUC.CancelOwnOrder(repos.orders, updateStatus), updateStatus, markPayment: new OrderUC.MarkPaymentStatus(repos.orders, repos.payments),
-    refund: new OrderUC.RefundOrder(repos.orders, repos.payments), detailForAdmin: new OrderUC.GetOrderDetailForAdmin(repos.orders, repos.payments, repos.users),
+    refund: new OrderUC.RefundOrder(repos.orders, repos.payments), receipt: new OrderUC.GenerateReceipt(repos.orders, repos.settings), detailForAdmin: new OrderUC.GetOrderDetailForAdmin(repos.orders, repos.payments, repos.users),
   };
   const payments = { initiate: new InitiatePayment(repos.orders, repos.payments, repos.settings, gateways, config), bank: new SubmitBankReference(repos.orders, repos.payments), callback: new HandleGatewayCallback(repos.orders, repos.payments, gateways) };
 
@@ -150,13 +150,13 @@ export function buildContainer(env: Env) {
   const reporting = {
     dashboard: new Rep.GetDashboard(repos.reporting, repos.products, repos.settings, repos.notifications), searchOrders: new Rep.SearchOrders(repos.reporting), orderDetail: orders.detailForAdmin,
     updateStatus, markPayment: orders.markPayment, refund: orders.refund, customers: new Rep.ListCustomers(repos.reporting), customer: new Rep.GetCustomerProfile(repos.users, repos.reporting),
-    setActive: new Rep.SetCustomerActive(repos.users), report: new Rep.GetReport(repos.reporting), analytics: new Rep.GetAnalytics(repos.reporting), subscribers: engagement.listSubscribers, settings: settings.get,
+    setActive: new Rep.SetCustomerActive(repos.users), report: new Rep.GetReport(repos.reporting), analytics: new Rep.GetAnalytics(repos.reporting), subscribers: engagement.listSubscribers, settings: settings.get, receipt: orders.receipt,
   };
 
   const useCases = { auth, catalog, cart, orders, payments, engagement, content, settings, promotions, delivery, uploads, reporting };
   const controllers = {
     auth: new AuthController(auth, cookie), catalog: new CatalogController(catalog), cart: new CartController(cart),
-    orders: new OrderController({ place: orders.place, mine: orders.mine, get: orders.get, track: orders.track, cancel: orders.cancel }),
+    orders: new OrderController({ place: orders.place, mine: orders.mine, get: orders.get, track: orders.track, cancel: orders.cancel, receipt: orders.receipt }),
     payments: new PaymentController(payments, env.CUSTOMER_URL), engagement: new EngagementController(engagement), settings: new SettingsController(settings.public, settings.get, settings.update), admin: new AdminController(reporting),
   };
   return { config, uploadDir, guards: createAuthGuards(tokens), services: { hasher, tokens, mailer }, repos, useCases, controllers };
