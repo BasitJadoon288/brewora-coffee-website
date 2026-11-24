@@ -1,1 +1,12 @@
-{"name":"brewora","private":true,"workspaces":["apps/*","packages/*"],"scripts":{"api:dev":"npm run dev -w apps/api","api:build":"npm run build -w apps/api"}}
+{
+  "name": "brewora",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "api:dev": "npm run dev -w apps/api",
+    "api:build": "npm run build -w apps/api"
+  }
+}

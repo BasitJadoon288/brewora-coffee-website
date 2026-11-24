@@ -46,7 +46,7 @@
     "vitest": "^2.0.5"
   },
   "engines": {
-    "node": "20.x"
+    "node": "26.x"
   },
   "optionalDependencies": {
     "bcrypt": "^5.1.1"
