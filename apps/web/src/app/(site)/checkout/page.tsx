@@ -27,12 +27,13 @@ export default function Checkout() {
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: () => api<PublicSettings>('/settings/public') });
   const { data: addresses } = useQuery({ queryKey: ['addresses'], enabled: !!user, queryFn: () => api<Address[]>('/addresses') });
   const [v, setV] = useState({ fullName: '', email: '', phone: '', line1: '', city: '', postalCode: '', notes: '' }); const [method, setMethod] = useState<PaymentMethod | ''>('');
-  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const idem = useRef(uuid());
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [placed, setPlaced] = useState(false); const idem = useRef(uuid());
   useEffect(() => { if (user) setV(x => ({ ...x, fullName: x.fullName || user.fullName, email: x.email || user.email, phone: x.phone || user.phoneNumber || '' })); }, [user]);
   useEffect(() => { const d = addresses?.find(a => a.isDefault) ?? addresses?.[0]; if (d) useAddress(d); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [addresses]);
   const enabled = METHODS.filter(m => settings?.paymentMethods?.[m.id]); useEffect(() => { if (!method && enabled.length) setMethod(enabled[0].id); }, [enabled, method]);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
   function useAddress(a: Address) { setV(x => ({ ...x, fullName: a.fullName, phone: a.phone, line1: a.line1, city: a.city, postalCode: a.postalCode ?? '' })); }
+  useEffect(() => { router.prefetch('/order-confirmation/new'); }, [router]); // warm up the confirmation page so the jump after ordering is instant
   async function place(e: React.FormEvent) {
     e.preventDefault(); setErr('');
     if (!PHONE_RE.test(v.phone)) return setErr('Enter a valid Pakistani mobile number, e.g. 03001234567');
@@ -43,17 +44,19 @@ export default function Checkout() {
       const r = await api<{ order: Order }>('/orders', { method: 'POST', body: { items: toQuoteItems(lines), couponCode: coupon || undefined, areaId: areaId || undefined, idempotencyKey: idem.current, paymentMethod: method,
         customer: { fullName: v.fullName, email: v.email, phone: v.phone, notes: v.notes || undefined }, shippingAddress: { line1: v.line1, city: hasAreas ? (area?.city ?? 'Karachi') : v.city, postalCode: v.postalCode || undefined } } });
       try { sessionStorage.setItem('brewora_last_order', JSON.stringify(r.order)); } catch { /* ignore */ }
-      clearLocal(); setCouponStore(''); await refresh().catch(() => undefined);
+      setPlaced(true); // keeps the page from flashing "Your cart is empty" while we move on
+      const done = () => { clearLocal(); setCouponStore(''); void refresh().catch(() => undefined); }; // cart cleanup runs in the background
       if (method === 'JazzCash' || method === 'EasyPaisa') {
-        try { const init = await api<{ url: string; fields: Record<string, string> }>(`/payments/${r.order.id}/initiate?email=${encodeURIComponent(v.email)}`, { method: 'POST' }); postForm(init.url, init.fields); return; }
+        try { const init = await api<{ url: string; fields: Record<string, string> }>(`/payments/${r.order.id}/initiate?email=${encodeURIComponent(v.email)}`, { method: 'POST' }); done(); postForm(init.url, init.fields); return; }
         catch (x) { toast(x instanceof ApiError ? x.message : 'Online payment is unavailable right now', 'err'); }
       }
-      router.push(`/order-confirmation/${r.order.id}`);
+      router.push(`/order-confirmation/${r.order.id}`); done();
     } catch (x) {
-      idem.current = uuid();
+      setPlaced(false); idem.current = uuid();
       setErr(x instanceof ApiError ? (x.errors ? Object.values(x.errors).flat()[0] ?? x.message : x.message) : 'Could not place your order');
     } finally { setBusy(false); }
   }
+  if (placed) return <Loading label="Order placed! Opening your confirmation…" />;
   if (loading) return <Loading />;
   if (lines.length === 0) return <div className="container-x py-16"><Empty title="Your cart is empty"><Link href="/shop" className="btn-gold">Continue shopping</Link></Empty></div>;
   return <div className="container-x py-10"><h1 className="font-display text-4xl text-espresso">Checkout</h1>

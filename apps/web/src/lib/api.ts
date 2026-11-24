@@ -1,26 +1,35 @@
-let accessToken: string | null = null;
-let refreshing: Promise<string | null> | null = null;
-export const setToken = (t: string | null) => { accessToken = t; };
+/**
+ * The admin panel (/admin/...) and the storefront keep SEPARATE sessions, so an admin and a customer can be signed in at the same
+ * time in one browser: each has its own in-memory access token and its own refresh cookie (selected with ?portal=admin).
+ */
+export type Portal = 'admin' | 'customer';
+export const portalOf = (): Portal => (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin') ? 'admin' : 'customer');
+const tokens: Record<Portal, string | null> = { admin: null, customer: null };
+const refreshing: Partial<Record<Portal, Promise<string | null>>> = {};
+export const setToken = (t: string | null) => { tokens[portalOf()] = t; };
+const withPortal = (url: string, p: Portal) => (p === 'admin' && url.startsWith('/api/auth/') ? `${url}${url.includes('?') ? '&' : '?'}portal=admin` : url);
 export class ApiError extends Error { constructor(public status: number, message: string, public errors?: Record<string, string[]>) { super(message); } }
 
-/** One in-flight refresh at a time (refresh tokens rotate; parallel refreshes would trip reuse detection). */
+/** One in-flight refresh per portal (refresh tokens rotate; parallel refreshes would trip reuse detection). */
 export function refreshToken(): Promise<string | null> {
-  refreshing ??= fetch('/api/auth/refresh-token', { method: 'POST', credentials: 'include' })
-    .then(async r => { if (!r.ok) { accessToken = null; return null; } accessToken = (await r.json()).accessToken as string; return accessToken; })
-    .catch(() => null).finally(() => { refreshing = null; });
-  return refreshing;
+  const p = portalOf();
+  refreshing[p] ??= fetch(withPortal('/api/auth/refresh-token', p), { method: 'POST', credentials: 'include' })
+    .then(async r => { if (!r.ok) { tokens[p] = null; return null; } tokens[p] = (await r.json()).accessToken as string; return tokens[p]; })
+    .catch(() => null).finally(() => { refreshing[p] = undefined; });
+  return refreshing[p]!;
 }
 async function authed(url: string, init: RequestInit = {}): Promise<Response> {
-  const go = () => fetch(url, { ...init, credentials: 'include', headers: { ...(init.headers as Record<string, string>), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) } });
+  const p = portalOf(); const target = withPortal(url, p);
+  const go = () => fetch(target, { ...init, credentials: 'include', headers: { ...(init.headers as Record<string, string>), ...(tokens[p] ? { Authorization: `Bearer ${tokens[p]}` } : {}) } });
   let r = await go();
-  if (r.status === 401 && accessToken && !url.startsWith('/api/auth/')) { if (await refreshToken()) r = await go(); }
+  if (r.status === 401 && tokens[p] && !url.startsWith('/api/auth/')) { if (await refreshToken()) r = await go(); }
   return r;
 }
 async function fail(r: Response): Promise<never> { const d = await r.json().catch(() => ({})); throw new ApiError(r.status, d.message ?? 'Request failed', d.errors); }
 
 /** Admin changes to public content refresh the cached storefront immediately (best effort). */
 const PUBLIC_WRITE = /^\/(admin\/(content|settings|banners|testimonials|inventory|coupons|reviews)|products|categories)/;
-function refreshStorefront() { if (typeof window !== 'undefined') fetch('/revalidate', { method: 'POST', headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} }).catch(() => undefined); }
+function refreshStorefront() { if (typeof window !== 'undefined') fetch('/revalidate', { method: 'POST', headers: tokens[portalOf()] ? { Authorization: `Bearer ${tokens[portalOf()]}` } : {} }).catch(() => undefined); }
 
 export async function api<T = any>(path: string, o: { method?: string; body?: unknown } = {}): Promise<T> {
   const method = o.method ?? 'GET';
@@ -30,23 +39,25 @@ export async function api<T = any>(path: string, o: { method?: string; body?: un
   if (r.status === 204) return undefined as T;
   return (await r.json()) as T;
 }
+/** Shrinks big photos in the browser before upload (max 1600 px). Keeps GIFs untouched and PNGs lossless (logos need transparency). */
+async function shrinkImage(file: File): Promise<Blob> {
+  if (typeof document === 'undefined' || !file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  try {
+    const bmp = await createImageBitmap(file); const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 800_000) return file;
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+    const out = await new Promise<Blob | null>(r => c.toBlob(r, file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.85));
+    return out && out.size < file.size ? out : file;
+  } catch { return file; }
+}
 /**
- * Uploads an image (admin only) and returns its public URL.
- * 1) Cloudinary signed direct upload (required on Vercel: serverless has no persistent disk and a 4.5 MB request limit)
- * 2) falls back to the API's local-disk upload only when Cloudinary is not configured (local development).
+ * Uploads an image (admin only) and returns its URL. The picture is stored in MongoDB by the API (served from /uploads/...),
+ * so it works the same locally and on Vercel and needs no third-party storage.
  */
 export async function apiUpload(file: File, folder: string): Promise<string> {
-  const s = await authed('/api/admin/uploads/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder }) });
-  if (s.ok) {
-    const p = await s.json(); const fd = new FormData();
-    fd.append('file', file); fd.append('api_key', String(p.apiKey)); fd.append('timestamp', String(p.timestamp)); fd.append('folder', String(p.folder)); fd.append('signature', String(p.signature));
-    const r = await fetch(p.uploadUrl as string, { method: 'POST', body: fd });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new ApiError(r.status, d?.error?.message ?? 'Image upload failed');
-    return d.secure_url as string;
-  }
-  if (s.status !== 503) return fail(s); // 503 = Cloudinary not configured -> local disk (development only)
-  const r = await authed(`/api/admin/uploads/image?folder=${encodeURIComponent(folder)}`, { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+  const body = await shrinkImage(file);
+  const r = await authed(`/api/admin/uploads/image?folder=${encodeURIComponent(folder)}`, { method: 'POST', headers: { 'Content-Type': body.type || file.type || 'application/octet-stream' }, body });
   if (!r.ok) return fail(r);
   return (await r.json()).url as string;
 }

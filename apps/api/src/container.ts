@@ -38,7 +38,7 @@ import { CartController } from './modules/cart/presentation/cart.controller';
 
 import { PlaceOrder } from './modules/orders/application/place-order';
 import * as OrderUC from './modules/orders/application/order.use-cases';
-import { MongoOrderRepository, RandomOrderNumberGenerator } from './modules/orders/infrastructure/mongo-order.repository';
+import { MongoOrderRepository, SequentialOrderNumberGenerator } from './modules/orders/infrastructure/mongo-order.repository';
 import { MongoPaymentRepository } from './modules/orders/infrastructure/mongo-payment.repository';
 import { OrderController } from './modules/orders/presentation/order.controller';
 
@@ -59,8 +59,8 @@ import { MongoReportingRepository } from './modules/reporting/infrastructure/mon
 import { AdminController } from './modules/reporting/presentation/admin.controller';
 
 import path from 'path';
-import { SignUpload, UploadImage } from './modules/uploads/application/upload';
-import { LocalDiskImageStorage } from './modules/uploads/infrastructure/local-disk.storage';
+import { GetStoredImage, SignUpload, UploadImage } from './modules/uploads/application/upload';
+import { MongoImageStorage } from './modules/uploads/infrastructure/mongo-image.storage';
 import { CloudinarySigner } from './modules/uploads/infrastructure/cloudinary.signer';
 
 export function buildContainer(env: Env) {
@@ -85,7 +85,7 @@ export function buildContainer(env: Env) {
     reporting: new MongoReportingRepository(), contact: new MongoContactRepository(), areas: new MongoDeliveryAreaRepository(),
   };
   const uploadDir = path.resolve(env.UPLOAD_DIR ?? 'uploads');
-  const numbers = new RandomOrderNumberGenerator();
+  const numbers = new SequentialOrderNumberGenerator();
   const notifier = new RepositoryNotifier(repos.notifications);
   const quote = new QuoteService(repos.products, repos.coupons, repos.settings, repos.areas);
 
@@ -144,7 +144,8 @@ export function buildContainer(env: Env) {
   const settings = { public: new GetPublicSettings(repos.settings), get: new GetSettings(repos.settings), update: new UpdateSettings(repos.settings) };
   const promotions = { manage: new ManageCoupons(repos.coupons), validate: new ValidateCoupon(repos.coupons) };
   const delivery = { list: new ListActiveDeliveryAreas(repos.areas), manage: new ManageResource(repos.areas, 'Delivery area') };
-  const uploads = { sign: new SignUpload(signer), image: new UploadImage(new LocalDiskImageStorage(uploadDir)) };
+  const imageStore = new MongoImageStorage();
+  const uploads = { sign: new SignUpload(signer), image: new UploadImage(imageStore), serve: new GetStoredImage(imageStore) };
 
   // ---- reporting
   const reporting = {

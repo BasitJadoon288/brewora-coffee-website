@@ -1,8 +1,7 @@
-import crypto from 'crypto';
 import { PageRequest, skipOf, toPage } from '../../../shared/domain/pagination';
 import { fromMongo, guard, oidOrNull } from '../../../shared/infrastructure/mongo';
 import { NewOrder, Order, OrderNumberGenerator, OrderRepository, OrderStatus, PaymentStatus, StatusEntry } from '../domain/order';
-import { OrderModel } from './order.models';
+import { CounterModel, OrderModel } from './order.models';
 const map = (d: any) => fromMongo<Order>(d);
 export class MongoOrderRepository implements OrderRepository {
   async create(o: NewOrder) { return map((await guard(OrderModel.create(o))).toObject()); }
@@ -25,6 +24,10 @@ export class MongoOrderRepository implements OrderRepository {
   async delete(id: string) { await OrderModel.deleteOne({ _id: id }); }
   async hasDeliveredPurchase(userId: string, productId: string) { return !!(await OrderModel.exists({ userId, orderStatus: 'Delivered', 'items.productId': productId })); }
 }
-export class RandomOrderNumberGenerator implements OrderNumberGenerator {
-  next() { return `BRW-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`; }
+/**
+ * Sequential, human-friendly order numbers: BRW-1001, BRW-1002, ... The counter is one atomic $inc in MongoDB, so concurrent
+ * checkouts (and several serverless instances) can never get the same number. A failed checkout leaves a gap, never a duplicate.
+ */
+export class SequentialOrderNumberGenerator implements OrderNumberGenerator {
+  async next() { const c = await CounterModel.findOneAndUpdate({ _id: 'order' }, { $inc: { seq: 1 } }, { upsert: true, new: true }).lean() as { seq: number }; return `BRW-${1000 + c.seq}`; }
 }

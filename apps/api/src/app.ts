@@ -24,6 +24,7 @@ import { deliveryAreaDto, deliveryAreaUpdateDto } from './modules/delivery/appli
 import { buildPublicDeliveryRoutes } from './modules/delivery/presentation/delivery.routes';
 import { buildCouponAdminRoutes, buildCouponPublicRoutes } from './modules/promotions/presentation/promotion.routes';
 import { buildAdminRoutes } from './modules/reporting/presentation/admin.routes';
+import { buildImageServeRoutes } from './modules/uploads/presentation/image.routes';
 import { buildUploadRoutes } from './modules/uploads/presentation/upload.routes';
 
 export function createApp(c: Container, env: Env) {
@@ -37,7 +38,8 @@ export function createApp(c: Container, env: Env) {
 
   // Static uploads are mounted BEFORE the body/cookie/sanitize/logging middleware: image requests don't need any of it, and file names are
   // random UUIDs so they can be cached "immutable" for a long time.
-  app.use('/uploads', express.static(c.uploadDir, { maxAge: '30d', immutable: true, setHeaders: r => { r.setHeader('X-Content-Type-Options', 'nosniff'); r.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); } }));
+  app.use(['/uploads', '/api/uploads'], express.static(c.uploadDir, { maxAge: '30d', immutable: true, setHeaders: r => { r.setHeader('X-Content-Type-Options', 'nosniff'); r.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); } }));
+  app.use(['/uploads', '/api/uploads'], buildImageServeRoutes(u.uploads.serve)); // pictures stored in MongoDB (files not found on disk above fall through to here)
 
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '100kb' })); // gateway callbacks

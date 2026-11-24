@@ -27,3 +27,6 @@ export const PaymentModel = model('Payment', new Schema({
   paymentStatus: { type: String, enum: ['Pending', 'Paid', 'Failed', 'Refunded'], default: 'Pending' },
   gatewayResponse: Schema.Types.Mixed, verifiedAt: Date,
 }, { timestamps: true }));
+
+/** Named counters (currently only the order-number sequence). */
+export const CounterModel = model('Counter', new Schema({ _id: String, seq: { type: Number, default: 0 } }, { versionKey: false }));

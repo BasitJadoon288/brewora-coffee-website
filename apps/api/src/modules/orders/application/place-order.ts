@@ -39,7 +39,7 @@ export class PlaceOrder {
       if (failure) throw failure;
       if (q.coupon) { if (!(await d.coupons.tryIncrementUsage(q.coupon.id))) throw new ConflictError('Coupon usage limit reached'); couponId = q.coupon.id; }
       const order = await d.orders.create({
-        orderNumber: d.numbers.next(), idempotencyKey: i.idempotencyKey, userId,
+        orderNumber: await d.numbers.next(), idempotencyKey: i.idempotencyKey, userId,
         customerDetails: { ...i.customer, email: i.customer.email.toLowerCase() }, items: q.lines, subTotal: q.subTotal, deliveryCharges: q.deliveryCharges,
         discount: q.discount, tax: q.tax, totalAmount: q.totalAmount, couponCode: q.coupon?.code, paymentMethod: i.paymentMethod, shippingAddress: { ...i.shippingAddress, area: q.deliveryArea?.name },
         statusHistory: [{ status: 'Pending', at: new Date(), by: userId, note: 'Order placed' }],

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx src/scripts/seed.ts",
     "seed:reset": "tsx src/scripts/seed.ts --reset",
+    "migrate:images": "tsx src/scripts/migrate-images.ts",
     "test": "vitest run",
     "vercel-build": "tsc -p ."
   },

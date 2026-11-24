@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useCart } from '@/lib/cart';
+import { imgUrl } from '@/lib/img';
 import AccountMenu from './AccountMenu';
 import { useAuth } from './auth';
 const links = [{ href: '/', label: 'Home' }, { href: '/shop', label: 'Shop' }, { href: '/shop?bestSeller=true', label: 'Best Sellers' }, { href: '/about', label: 'About' }, { href: '/contact', label: 'Contact' }];
@@ -15,7 +16,7 @@ export default function Header({ storeName = 'BREWORA', logo }: { storeName?: st
     <header className="sticky top-0 z-40 border-b border-cream/10 bg-espresso/95 text-cream backdrop-blur">
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 font-display text-xl tracking-[0.15em] sm:text-2xl sm:tracking-[0.2em]">
-          {logo ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={logo} alt={storeName} className="h-7 w-auto max-w-[140px] object-contain sm:h-8 sm:max-w-[200px]" /> : <Coffee className="h-6 w-6 text-caramel" aria-hidden />}{!logo && storeName.toUpperCase()}</Link>
+          {logo ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={imgUrl(logo)} alt={storeName} className="h-7 w-auto max-w-[140px] object-contain sm:h-8 sm:max-w-[200px]" /> : <Coffee className="h-6 w-6 text-caramel" aria-hidden />}{!logo && storeName.toUpperCase()}</Link>
         <nav className="hidden gap-6 text-sm lg:flex" aria-label="Main">{links.map(l => <Link key={l.href} href={l.href} className="relative py-1 transition hover:text-caramel after:absolute after:inset-x-0 after:bottom-0 after:h-px after:origin-left after:scale-x-0 after:bg-caramel after:transition-transform hover:after:scale-x-100">{l.label}</Link>)}</nav>
         <form onSubmit={search} className="hidden flex-1 md:block md:max-w-xs" role="search"><label className="sr-only" htmlFor="hs">Search products</label>
           <div className="flex items-center rounded-full bg-cream/10 px-3"><Search className="h-4 w-4 text-cream/60" aria-hidden /><input id="hs" value={q} onChange={e => setQ(e.target.value)} placeholder="Search coffee…" className="w-full bg-transparent px-2 py-2 text-sm outline-none placeholder:text-cream/50" /></div></form>

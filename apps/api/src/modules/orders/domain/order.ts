@@ -29,7 +29,7 @@ export interface OrderRepository {
   delete(id: string): Promise<void>;
   hasDeliveredPurchase(userId: string, productId: string): Promise<boolean>;
 }
-export interface OrderNumberGenerator { next(): string }
+export interface OrderNumberGenerator { next(): Promise<string> }
 export const canAccessOrder = (o: Order, viewer?: Viewer, email?: string) =>
   !!((viewer && (viewer.role === 'Admin' || o.userId === viewer.id)) || (email && o.customerDetails.email === email.toLowerCase()));
 const next: Record<OrderStatus, OrderStatus[]> = { Pending: ['Confirmed', 'Cancelled'], Confirmed: ['Processing', 'Cancelled'], Processing: ['Shipped', 'Cancelled'], Shipped: ['Delivered'], Delivered: [], Cancelled: [] };

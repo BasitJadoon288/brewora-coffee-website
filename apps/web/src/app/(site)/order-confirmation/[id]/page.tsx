@@ -14,18 +14,20 @@ type Bank = { bankName?: string; accountTitle?: string; accountNumber?: string; 
 function Confirmation({ id }: { id: string }) {
   const { user, loading } = useAuth(); const toast = useToast(); const sp = useSearchParams(); const payment = sp.get('payment');
   const [o, setO] = useState<Order | null>(null); const [missing, setMissing] = useState(false); const [bank, setBank] = useState<Bank | null>(null); const [ref, setRef] = useState(''); const [sender, setSender] = useState(''); const [busy, setBusy] = useState(false);
+  // Show the order saved at checkout straight away (no waiting for sign-in/network), then refresh it from the server when possible.
+  const lastOrder = (): Order | null => { try { const s = JSON.parse(sessionStorage.getItem('brewora_last_order') ?? 'null'); return s?.id === id ? s : null; } catch { return null; } };
+  useEffect(() => { const s = lastOrder(); if (s) setO(s); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (loading) return;
     (async () => {
-      try { if (user) { setO(await api<Order>(`/orders/${id}`)); return; } } catch { /* fall back to the order saved at checkout */ }
-      try { const s = JSON.parse(sessionStorage.getItem('brewora_last_order') ?? 'null'); if (s?.id === id) { setO(s); return; } } catch { /* ignore */ }
-      setMissing(true);
+      try { if (user) { setO(await api<Order>(`/orders/${id}`)); return; } } catch { /* keep the order saved at checkout */ }
+      if (!lastOrder()) setMissing(true);
     })();
-  }, [loading, user, id]);
+  }, [loading, user, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (o?.paymentMethod === 'BankTransfer' && o.paymentStatus === 'Pending') api<{ bank: Bank }>(`/payments/${id}/initiate?email=${encodeURIComponent(o.customerDetails.email)}`, { method: 'POST' }).then(r => setBank(r.bank)).catch(() => undefined); }, [o, id]);
   async function sendRef(e: React.FormEvent) { e.preventDefault(); if (!o) return; setBusy(true); try { await api(`/payments/${id}/bank-reference`, { method: 'POST', body: { reference: ref, senderName: sender || undefined, email: o.customerDetails.email } }); toast('Reference received. We will verify your payment shortly.'); setRef(''); } catch (x) { toast(x instanceof ApiError ? (x.errors?.reference?.[0] ?? x.message) : 'Could not submit', 'err'); } finally { setBusy(false); } }
   async function payNow() { if (!o) return; try { const r = await api<{ url: string; fields: Record<string, string> }>(`/payments/${id}/initiate?email=${encodeURIComponent(o.customerDetails.email)}`, { method: 'POST' }); postForm(r.url, r.fields); } catch (x) { toast(x instanceof ApiError ? x.message : 'Online payment is unavailable', 'err'); } }
-  if (loading || (!o && !missing)) return <Loading />;
+  if (!o && (loading || !missing)) return <Loading />;
   if (!o) return <div className="container-x max-w-xl py-16 text-center"><h1 className="font-display text-3xl text-espresso">Thank you!</h1><p className="mt-3 text-charcoal/70">Your order was received. Use your confirmation email to track it.</p><Link href="/track-order" className="btn-dark mt-6">Track an order</Link></div>;
   const failed = payment === 'failed'; const online = o.paymentMethod === 'JazzCash' || o.paymentMethod === 'EasyPaisa';
   return <div className="container-x max-w-3xl py-12">
