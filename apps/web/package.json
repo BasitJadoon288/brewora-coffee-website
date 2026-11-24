@@ -31,6 +31,6 @@
   "@testing-library/dom": "^10.4.0"
  },
  "engines": {
-  "node": ">=18.18"
+  "node": "26.x"
  }
 }
