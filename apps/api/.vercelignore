@@ -1,5 +1,5 @@
 .env
 .env.local
-uploads
-tests
+/uploads
+/tests
 node_modules
