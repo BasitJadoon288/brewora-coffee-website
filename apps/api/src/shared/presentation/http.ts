@@ -15,9 +15,9 @@ export const validate = (schema: ZodSchema, part: 'body' | 'query' = 'body'): Re
   if (part === 'body') req.body = r.data; else (req as any).validated = r.data;
   next();
 };
-/** Marks a GET response as publicly cacheable by browsers/CDN (Vercel edge). Removed again by the error handler, so errors are never cached. */
-export const publicCache = (seconds: number, staleSeconds = seconds * 5): RequestHandler => (_req, res, next) => {
-  res.setHeader('Cache-Control', `public, max-age=${Math.min(seconds, 10)}, s-maxage=${seconds}, stale-while-revalidate=${staleSeconds}`); next();
+/** Public storefront reads are always revalidated (ETag/304), so an admin change is visible on the very next request. The Next.js data cache (purged by /revalidate) is the only caching layer; a CDN or browser copy here would make admin edits show up minutes late. */
+export const publicCache = (_seconds?: number, _staleSeconds?: number): RequestHandler => (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate'); next();
 };
 export const validated = <T>(req: Request) => (req as any).validated as T;
 export const viewerOf = (req: Request): Viewer | undefined => req.user;

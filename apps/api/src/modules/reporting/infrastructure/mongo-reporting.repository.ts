@@ -1,4 +1,3 @@
-import type { PipelineStage } from 'mongoose';
 import { PageRequest, skipOf, toPage } from '../../../shared/domain/pagination';
 import { escapeRegex, fromMongo, oidOrNull } from '../../../shared/infrastructure/mongo';
 import { OrderModel } from '../../orders/infrastructure/order.models';
@@ -14,7 +13,7 @@ const mapUser = (d: any) => fromMongo<User>(d);
 
 export class MongoReportingRepository implements ReportingRepository {
   /** $group + $sort stages for one period granularity (shared by the single-period and the dashboard "all periods" query). */
-  private seriesStages(period: Period): PipelineStage.FacetPipelineStage[] {
+  private seriesStages(period: Period) {
     const idExpr: any = period === 'weekly'
       ? { y: { $isoWeekYear: { date: '$createdAt', timezone: TZ } }, w: { $isoWeek: { date: '$createdAt', timezone: TZ } } }
       : { $dateToString: { format: { daily: '%Y-%m-%d', monthly: '%Y-%m', yearly: '%Y' }[period], date: '$createdAt', timezone: TZ } };
@@ -36,7 +35,7 @@ export class MongoReportingRepository implements ReportingRepository {
   /** Dashboard: all four default series from ONE pass over orders ($facet) instead of four separate aggregations. */
   async salesOverview(): Promise<Record<Period, SalesPoint[]>> {
     const periods: Period[] = ['daily', 'weekly', 'monthly', 'yearly']; const now = new Date();
-    const facets: Record<string, PipelineStage.FacetPipelineStage[]> = Object.fromEntries(periods.map(p => [p, [{ $match: { createdAt: { $gte: defaultFrom(p) } } }, ...this.seriesStages(p)]]));
+    const facets = Object.fromEntries(periods.map(p => [p, [{ $match: { createdAt: { $gte: defaultFrom(p) } } }, ...this.seriesStages(p)]]));
     const [row] = await OrderModel.aggregate([{ $match: { orderStatus: { $ne: 'Cancelled' }, createdAt: { $gte: defaultFrom('yearly'), $lte: now } } }, { $facet: facets }]);
     return Object.fromEntries(periods.map(p => [p, this.toPoints(row?.[p] ?? [])])) as Record<Period, SalesPoint[]>;
   }

@@ -2,7 +2,7 @@
 const BASE = process.env.API_INTERNAL_URL || 'http://localhost:4000';
 export async function serverGet<T>(path: string, fallback: T): Promise<T> {
   try {
-    const r = await fetch(BASE + path, { next: { revalidate: 30 } });
+    const r = await fetch(BASE + path, { next: { revalidate: 10 } });
     return r.ok ? ((await r.json()) as T) : fallback;
   } catch { return fallback; }
 }
